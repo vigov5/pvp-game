@@ -1,14 +1,30 @@
 from app import db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 ROLE_USER = 0
 ROLE_ADMIN = 1
 
 class User(db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key = True)
-    nickname = db.Column(db.String(64), unique = True)
-    email = db.Column(db.String(120), unique = True)
+    username = db.Column(db.String(30), unique = True, nullable = False)
+    password = db.Column(db.String(100))
+    name = db.Column(db.String(50))
+    email = db.Column(db.String(45))
     role = db.Column(db.SmallInteger, default = ROLE_USER)
-    posts = db.relationship('Post', backref = 'author', lazy = 'dynamic')
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
+
+    def __init__(self, username, email, password):
+        self.username = username
+        self.name = username
+        self.email = email.lower()
+        self.set_password(password)
+         
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
 
     def is_authenticated(self):
         return True
@@ -26,11 +42,11 @@ class User(db.Model):
         return '<User %r>' % (self.nickname)
 
 
-class Post(db.Model):
+class Team(db.Model):
+    __tablename__ = 'teams'
     id = db.Column(db.Integer, primary_key = True)
-    body = db.Column(db.String(140))
-    timestamp = db.Column(db.DateTime)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    name = db.Column(db.String(30))
+    description = db.Column(db.Text)
 
     def __repr__(self):
-        return '<Post %r>' % (self.body)
+        return '<Team %r>' % (self.name)
