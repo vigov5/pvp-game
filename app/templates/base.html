@@ -21,48 +21,56 @@
     {% block js %}{% endblock %}
   </head>
   <body>
-    <!-- Fixed navbar -->
-    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
-      <div class="container">
-        <div class="navbar-header">
-          <a class="navbar-brand" href="{{ url_for('index') }}">Framgia CTF</a>
-        </div>
-        <div class="navbar-collapse collapse">
-          <ul class="nav navbar-nav">
-            <li class="active"><a href="{{ url_for('index') }}">Home</a></li>
-            <li><a href="#about">Tasks</a></li>
-            <li><a href="#contact">Teams</a></li>
-            <li><a href="#contact">Users</a></li>
-          </ul>
-          <ul class="nav navbar-nav navbar-right">
-            {% if g.user.is_authenticated() %}
-            <li class="dropdown">
-              <a href="#" class="dropdown-toggle" data-toggle="dropdown">{{ user.name }} <span class="caret"></span></a>
-              <ul class="dropdown-menu" role="menu">
-                <li><a href="{{ url_for('profile')}}">Profile</a></li>
-                <li class="divider"></li>
-                <li><a href="{{ url_for('logout') }}">Log out</a></li>
-              </ul>
-            </li>
-            {% else %}
-            <li><a href="{{ url_for('login') }}">Log in</a></li>
-            {% endif %}
-          </ul>
-        </div><!--/.nav-collapse -->
+    <div class="container">
+      <div class="row clearfix">
+        <div class="col-md-12 column">
+          <!-- Fixed navbar -->
+          <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+            <div class="container">
+              <div class="navbar-header">
+                <a class="navbar-brand" href="{{ url_for('index') }}">Framgia CTF</a>
+              </div>
+              <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                  <li class="active"><a href="{{ url_for('index') }}">Home</a></li>
+                  <li><a href="#about">Tasks</a></li>
+                  <li><a href="#contact">Teams</a></li>
+                  <li><a href="#contact">Users</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                  {% if g.user.is_authenticated() %}
+                  <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">{{ g.user.name }} <span class="caret"></span></a>
+                    <ul class="dropdown-menu" role="menu">
+                      <li><a href="{{ url_for('profile')}}">Profile</a></li>
+                      <li class="divider"></li>
+                      <li><a href="{{ url_for('logout') }}">Log out</a></li>
+                    </ul>
+                  </li>
+                  {% else %}
+                  <li><a href="{{ url_for('login') }}">Log in</a></li>
+                  {% endif %}
+                </ul>
+              </div><!--/.nav-collapse -->
+            </div>
+          </div>
+        </div><!-- Fixed navbar -->
       </div>
-    </div><!-- Fixed navbar -->
-    <div class="main-container">
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-warning alert-dismissible" role="alert">
-    <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-    {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
-    {% block content %}{% endblock %}
+      <div class="row clearfix">
+        <div class="col-md-12 column">
+        {% with messages = get_flashed_messages(with_categories=True) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible" role="alert">
+        <button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+        {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        </div>
+      </div>
+      {% block content %}{% endblock %}
     </div>
   </body>
 </html>

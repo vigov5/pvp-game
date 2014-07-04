@@ -1,4 +1,53 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Hi, {{user.name}}!</h1>
+<div class="row clearfix">
+  <div class="col-md-12 column">
+    <div class="jumbotron">
+      <h1>
+        Hello, Framgia-er !
+      </h1>
+      <p>
+        This is first ever made CTF for Framgia's member !. Join the combat now.
+      </p>
+      <p>
+        <a class="btn btn-primary btn-large" href="{{ url_for('signup') }}">Sign Up</a>
+      </p>
+    </div>
+  </div>
+</div>
+<div class="row clearfix">
+  <div class="col-md-4 column">
+    <h2>
+      What's CTF
+    </h2>
+    <p>
+      CTF is not FTC, obiviously.
+    </p>
+    <p>
+      <a class="btn" href="#">View details »</a>
+    </p>
+  </div>
+  <div class="col-md-4 column">
+    <h2>
+      Where the hell on earth I'm ?
+    </h2>
+    <p>
+      I don't know 2.
+    </p>
+    <p>
+      <a class="btn" href="#">View details »</a>
+    </p>
+  </div>
+  <div class="col-md-4 column">
+    <h2>
+        Ma ma ma ma
+    </h2>
+    <p>
+      To to to to
+    </p>
+    <p>
+      <a class="btn" href="#">View details »</a>
+    </p>
+  </div>
+</div>
 {% endblock %}

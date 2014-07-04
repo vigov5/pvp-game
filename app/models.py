@@ -1,3 +1,4 @@
+import hashlib
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -39,7 +40,11 @@ class User(db.Model):
         return unicode(self.id)
 
     def __repr__(self):
-        return '<User %r>' % (self.nickname)
+        return '<User %r>' % (self.username)
+
+    def getAvatar(self, size = 160):
+        email_hash = hashlib.md5(self.email).hexdigest()
+        return "http://www.gravatar.com/avatar/%s?d=mm&s=%d" % (email_hash, size)
 
 
 class Team(db.Model):
@@ -47,6 +52,7 @@ class Team(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     name = db.Column(db.String(30))
     description = db.Column(db.Text)
+    members = db.relationship('User', backref = 'team', lazy = 'dynamic')
 
     def __repr__(self):
         return '<Team %r>' % (self.name)

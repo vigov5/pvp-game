@@ -1,19 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<table class="table table-bordered">
-<tbody>
-<tr>
-	<td>Username</td><td>{{ user.username }}</td>
-</tr>
-<tr>
-	<td>Name</td><td>{{ user.name }}</td>
-</tr>
-<tr>
- 	<td>Email</td><td>{{ user.email }}</td>
-</tr>
-<tr>
-	<td>Team</td><td>{{ user.team }}</td>
-</tr>
-</tbody>
-</table>
+<div class="row clearfix">
+
+<div class="row">
+  <div class="col-md-8">
+      <p><img src="{{ user.getAvatar() }}" width="160" height="160"/></p>
+      <h1>{{ user.name }}</h1>
+      <br>
+      <table class="table table-striped">
+        <tr>
+          <td><h6>Username:</h6></td>
+          <td><span class="glyphicon glyphicon-user"></span> {{ user.username }}</td>
+        </tr>
+        <tr>
+          <td><h6>Email:</h6></td>
+          <td><span class="glyphicon glyphicon-envelope"></span> {{ user.email }}</td>
+        </tr>
+      </table>
+      {% if g.user.id == user.id %}
+      <a class="btn btn-primary" href="{{ url_for('edit_profile') }}">Edit Profile</a>
+      {% endif %}
+  </div>
+  <div class="col-md-4">
+    <div class="panel panel-success">
+      <div class="panel-heading">
+        <h3 class="panel-title">Team</h3>
+      </div>
+      <div class="panel-body">
+        {% if user.team %}
+          {{ user.team.name }}
+        {% else %}
+          {% if g.user.id == user.id %}
+          You not belong to any team.<br>
+          Join or create new one now !.
+          {% else %}
+          This user doesn't belong to any team.
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
