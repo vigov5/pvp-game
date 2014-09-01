@@ -2,4 +2,4 @@
 from migrate.versioning.shell import main
 
 if __name__ == '__main__':
-    main(six='<module 'six' from '/home/vigo/fctf/flask/local/lib/python2.7/site-packages/six.pyc'>')
+    main(six='<module 'six' from '/home/vigo/pvp-game/venv/local/lib/python2.7/site-packages/six.pyc'>')

@@ -1,0 +1,12 @@
+flask==0.10.1
+tornado==4.0
+flask-login==0.2.11
+sqlalchemy==0.7.9
+flask-sqlalchemy==1.0
+sqlalchemy-migrate==0.9.1
+flask-whooshalchemy==0.55
+flask-wtf==0.9.5
+pytz==2014.4
+flask-babel==0.9
+flup==1.0.2
+MySQL-python==1.2.5

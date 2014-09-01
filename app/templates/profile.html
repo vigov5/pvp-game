@@ -22,23 +22,6 @@
       {% endif %}
   </div>
   <div class="col-md-4">
-    <div class="panel panel-success">
-      <div class="panel-heading">
-        <h3 class="panel-title">Team</h3>
-      </div>
-      <div class="panel-body">
-        {% if user.team %}
-          {{ user.team.name }}
-        {% else %}
-          {% if g.user.id == user.id %}
-          You not belong to any team.<br>
-          Join or create new one now !.
-          {% else %}
-          This user doesn't belong to any team.
-          {% endif %}
-        {% endif %}
-      </div>
-    </div>
   </div>
 </div>
 {% endblock %}

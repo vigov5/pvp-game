@@ -1,5 +1,5 @@
 from flask_wtf import Form
-from wtforms import TextField, SubmitField, validators, PasswordField
+from wtforms import TextField, SubmitField, validators, PasswordField, HiddenField
 from models import User
 
 class SignupForm(Form):
@@ -57,3 +57,22 @@ class LoginForm(Form):
         else:
             self.password.errors.append('Invalid e-mail or password')
             return False
+
+class CreateGameForm(Form):
+    user_id = HiddenField('user_id')
+    submit = SubmitField('Create Game')
+
+    def __init__(self, current_user, *args, **kwargs):
+        self.current_user_id = current_user.id
+        Form.__init__(self, *args, **kwargs)
+
+    def validate(self):
+        if not Form.validate(self):
+            return False
+
+        user = User.query.get(self.user_id.data)
+        if not user or user.id != self.current_user_id:
+            self.user_id.errors.append('Invalid user')
+            return False
+        else:
+            return True

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row clearfix">
+  <div class="col-md-10 column">
+    Hello World
+    <canvas id="gameCanvas" width="500" height="500">
+        alternate content
+    </canvas>
+  </div>
+  <div class="col-md-2 column">
+    <div id="clients" class="btn-group-vertical">
+        <button type="button" class="btn btn-default">Button</button>
+    </div>
+  </div>
+    <script>
+        var host_player = "{{ host_player.name }}";
+        var p1 = "{{ host_player.id }}";
+        var guest_player = "{{ guest_player.name }}";
+        var p2 = "{{ guest_player.id }}";
+        var role = "{{ role }}"
+        var gid = "{{ game.id }}"
+
+        ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
+        ws.onmessage = function(msg) {
+            data = JSON.parse(msg.data);
+            if (data.msg == 'online') {
+
+            } else if (data.msg == 'offline') {
+            } else if (data.msg == 'connected') {
+            } else if (data.msg == 'list_clients') {
+            }
+        };
+        ws.onerror = function(evt) {
+            alert("ERROR: "+ evt);
+        };
+        ws.onopen = function(evt) {
+            if (role == "join") {
+                send_message(JSON.stringify({"msg": "joined", "name": guest_player, "clid": p2, "gid": gid}));
+            } else if (role == "host") {
+                send_message(JSON.stringify({"msg": "created", "name": host_player, "clid": p1, "gid": gid}));
+            }
+        };
+        ws.onclose = function(evt){
+            if (role == "join") {
+                send_message(JSON.stringify({"msg": "offline", "name": guest_player, "clid": p2}));
+            } else if (role == "host") {
+                send_message(JSON.stringify({"msg": "offline", "name": host_player, "clid": p1}));
+            }
+        }
+        window.onbeforeunload = function() {
+            send_message(JSON.stringify({"msg": "offline", "name": nick, "clid": user_id}));
+            ws.close();
+        };
+        function send_message(msg) {
+            ws.send(msg);
+        }
+    </script>
+</div>
+{% endblock %}

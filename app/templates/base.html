@@ -1,9 +1,9 @@
 <html>
   <head>
     {% if title %}
-    <title>{{title}} - Framgia CTF</title>
+    <title>{{title}} - Japanese Game</title>
     {% else %}
-    <title>Framgia CTF</title>
+    <title>Japanese Game</title>
     {% endif %}
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -28,14 +28,11 @@
           <div class="navbar navbar-default navbar-fixed-top" role="navigation">
             <div class="container">
               <div class="navbar-header">
-                <a class="navbar-brand" href="{{ url_for('index') }}">Framgia CTF</a>
+                <a class="navbar-brand" href="{{ url_for('index') }}">Japanese Game</a>
               </div>
               <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
                   <li class="active"><a href="{{ url_for('index') }}">Home</a></li>
-                  <li><a href="#about">Tasks</a></li>
-                  <li><a href="#contact">Teams</a></li>
-                  <li><a href="#contact">Users</a></li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
                   {% if g.user.is_authenticated() %}

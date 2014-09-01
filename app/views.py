@@ -1,10 +1,10 @@
 from flask import render_template, flash, redirect, url_for, request, g
 from flask.ext.login import login_user, logout_user, current_user, login_required
 from app import app, db, lm
-from forms import LoginForm, SignupForm
+from forms import LoginForm, SignupForm, CreateGameForm
 from wtforms.ext.sqlalchemy.orm import model_form
 from flask_wtf import Form
-from models import User, ROLE_USER, ROLE_ADMIN
+from models import User, Game, ROLE_USER, ROLE_ADMIN, get_object_or_404
 
 @app.before_request
 def before_request():
@@ -15,11 +15,45 @@ def load_user(userid):
     return User.query.get(int(userid))
 
 @app.route('/')
-@app.route('/index')
+@app.route('/index', methods = ['GET', 'POST'])
+@login_required
 def index():
+    form = CreateGameForm(g.user)
+    if form.validate_on_submit():
+        host_player = User.query.get(form.user_id.data)
+        new_game = Game(host_player)
+        db.session.add(new_game)
+        db.session.commit()
+        return redirect(url_for('game', game_id=new_game.id))
     return render_template(
         'index.html',
-        user=g.user
+        user=g.user,
+        create_form=form
+    )
+
+@app.route('/game/<int:game_id>', methods = ['GET', 'POST'])
+@login_required
+def game(game_id=None):
+    game = get_object_or_404(Game, Game.id == game_id)
+    host_player = None
+    guest_player = None
+    if game.status == 'created':
+        host_player = get_object_or_404(User, User.id == game.host_id)
+    if game.status == 'joined':
+        host_player = get_object_or_404(User, User.id == game.host_id)
+        guest_player = get_object_or_404(User, User.id == game.guest_id)
+    role = 'watcher'
+    if g.user.id == game.host_id:
+        role = 'host'
+    elif g.user.id == game.guest_id:
+        role = 'join'
+
+    return render_template(
+        'game.html',
+        game=game,
+        role=role,
+        host_player=host_player,
+        guest_player=guest_player,
     )
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -30,7 +64,7 @@ def signup():
         db.session.add(new_user)
         db.session.commit()
         login_user(new_user)
-        redirect(request.args.get('next') or url_for('index'))
+        return redirect(request.args.get('next') or url_for('index'))
     return render_template('signup.html', form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
