@@ -1,32 +1,75 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row clearfix">
-  <div class="col-md-10 column">
-    Hello World
-    <canvas id="gameCanvas" width="500" height="500">
-        alternate content
-    </canvas>
-  </div>
-  <div class="col-md-2 column">
-    <div id="clients" class="btn-group-vertical">
-        <button type="button" class="btn btn-default">Button</button>
+    <div class="col-md-12 column">
+        <div class="ja-text question" id="questions">
+        </div>
     </div>
+    <br>
+    <br>
+    <br>
+    <br>
+  <div class="col-md-12 column">
+    <div id="answers">
+        <table id="ans" class="tbl-ans">
+            <tr>
+            </tr>
+        </table>
+    </div>
+　　</div>
+  <div class="col-md-12 column">
+    {% if role == 'host' %}
+        <button id="start_button" class="btn btn-primary" onclick="start_game();">Start Game</button>
+    {% endif %}
   </div>
     <script>
         var host_player = "{{ host_player.name }}";
+        {% if host_player.id %}
         var p1 = "{{ host_player.id }}";
+        {% else %}
+        var p1 = "0";
+        {% endif %}
+        
         var guest_player = "{{ guest_player.name }}";
+        {% if guest_player.id %}
         var p2 = "{{ guest_player.id }}";
+        {% else %}
+        var p2 = "0";
+        {% endif %}
         var role = "{{ role }}"
         var gid = "{{ game.id }}"
+        var q_num = 0;
 
+        {% if role == 'host' %}
+        $('#start_button').hide();
+        {% endif %}
         ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
         ws.onmessage = function(msg) {
             data = JSON.parse(msg.data);
-            if (data.msg == 'online') {
-
-            } else if (data.msg == 'offline') {
-            } else if (data.msg == 'connected') {
+            console.log('got message' + msg.data);
+            if (data.msg == 'ready') {
+                $('#start_button').show();
+                console.log('player ' + data['name'] + ' joined');
+            } else if (data.msg == 'quited') {
+                console.log('other player quited');
+                alert('other player quited');
+                window.location = "http://" + location.hostname + ":" + location.port + "/";
+            } else if (data.msg == 'cheated') {
+                console.log('other player cheated !!!!');
+                alert('other player cheated !!!!');
+                window.location = "http://" + location.hostname + ":" + location.port + "/";
+            } else if (data.msg == 'question') {
+                $("#questions").text(data['q']);
+                for (var i = 0; i < data['a'].length; i++) {
+                    txt = '<td><div class="btn btn-default btn-large ja-text choice" id="' + (i+1) + '">' + data['a'][i] + '</div></td>';
+                    $("#ans tr:last").append(txt);
+                };
+                $(".choice").each(function(index, el) {
+                    $(el).click(function(event) {
+                        send_answer(gid, role, $(el).attr('game_id'));
+                    });
+                });
+                q_num = parseInt(data['q_num']);
             } else if (data.msg == 'list_clients') {
             }
         };
@@ -51,8 +94,22 @@
             send_message(JSON.stringify({"msg": "offline", "name": nick, "clid": user_id}));
             ws.close();
         };
+        
+        function send_answer(gid, role, aid) {
+            if (role == "join") {
+                send_message(JSON.stringify({"msg": "answer", "gid": gid, "clid": p2, "aid": aid, "q_num": q_num}));
+            } else if (role == "host") {
+                send_message(JSON.stringify({"msg": "answer", "gid": gid, "clid": p1, "aid": aid, "q_num": q_num}));
+            }
+        }
+
         function send_message(msg) {
             ws.send(msg);
+        }
+        function start_game(){
+            send_message(JSON.stringify({"msg": "start", "gid": gid}));
+            $('#start_button').hide();
+            return false;
         }
     </script>
 </div>

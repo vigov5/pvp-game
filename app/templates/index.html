@@ -2,6 +2,17 @@
 {% block content %}
 <div class="row clearfix">
   <div class="col-md-10 column">
+  	<form id="join_game" role="form" action="" method="POST">
+  		<input name="game_id" type="hidden" value="">
+  		<input name="user_id" type="hidden" value="{{ g.user.id }}">
+  		{{ create_form.csrf_token }}
+  		<div id="game_list">
+  	{% for game in games %}
+  		Game {{ game.id }} by user {{ game.host_id}}:<br>
+  		<button id="join_submit" class="btn btn-primary" game_id="{{ game.id }}" >Join Game</button><br>
+  	{% endfor %}
+  		</div>
+  	</form>
     <form role="form" action="" method="POST">
         <input name="user_id" type="hidden" value="{{ user.id }}">
         {{ create_form.csrf_token }}
@@ -10,4 +21,35 @@
     </form>
   </div>
 </div>
+<script type="text/javascript">
+	var page = '{{ page }}';
+	ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
+    ws.onmessage = function(msg) {
+    	data = JSON.parse(msg.data);
+        if (data.msg == 'new_game') {
+        	if (page == 'index'){
+        		$('#game_list').append('Game ' + data['gid'] + ' by user ' + data['name'] + ':<br>');
+  				$('#game_list').append('<button id="join_submit" class="btn btn-primary" game_id="' + data['gid'] + '"">Join Game</button><br>')
+        	}
+          bind_click_join();
+        }
+    }
+    function send_message(msg) {
+        ws.send(msg);
+    }
+    
+    function bind_click_join() {
+      $("#join_submit").each(function(index, el) {
+        $(el).click(function(event) {
+          $("#join_game input[name=game_id]").val($(el).attr('game_id'));
+          $('#join_game').submit();
+        });
+      });
+    }
+
+    $(document).ready(function() {
+      bind_click_join();
+    });
+
+</script>
 {% endblock %}

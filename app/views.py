@@ -1,7 +1,7 @@
 from flask import render_template, flash, redirect, url_for, request, g
 from flask.ext.login import login_user, logout_user, current_user, login_required
 from app import app, db, lm
-from forms import LoginForm, SignupForm, CreateGameForm
+from forms import LoginForm, SignupForm, CreateGameForm, JoinGameForm
 from wtforms.ext.sqlalchemy.orm import model_form
 from flask_wtf import Form
 from models import User, Game, ROLE_USER, ROLE_ADMIN, get_object_or_404
@@ -14,13 +14,22 @@ def before_request():
 def load_user(userid):
     return User.query.get(int(userid))
 
-@app.route('/')
+@app.route('/', methods = ['GET', 'POST'])
 @app.route('/index', methods = ['GET', 'POST'])
 @login_required
 def index():
-    form = CreateGameForm(g.user)
-    if form.validate_on_submit():
-        host_player = User.query.get(form.user_id.data)
+    games = Game.query.filter_by(status = 'created').all()
+    create_form = CreateGameForm(g.user)
+    join_form = JoinGameForm(g.user)
+    if join_form.validate_on_submit():
+        game = Game.query.get(join_form.game_id.data)
+        game.guest_id = join_form.user_id.data
+        game.status = 'joined'
+        db.session.add(game)
+        db.session.commit()
+        return redirect(url_for('game', game_id=game.id))
+    elif create_form.validate_on_submit():
+        host_player = User.query.get(create_form.user_id.data)
         new_game = Game(host_player)
         db.session.add(new_game)
         db.session.commit()
@@ -28,7 +37,9 @@ def index():
     return render_template(
         'index.html',
         user=g.user,
-        create_form=form
+        create_form=create_form,
+        page='index',
+        games=games
     )
 
 @app.route('/game/<int:game_id>', methods = ['GET', 'POST'])
@@ -37,6 +48,8 @@ def game(game_id=None):
     game = get_object_or_404(Game, Game.id == game_id)
     host_player = None
     guest_player = None
+    if game.status == 'canceled':
+        return redirect(url_for('index'))
     if game.status == 'created':
         host_player = get_object_or_404(User, User.id == game.host_id)
     if game.status == 'joined':
@@ -54,6 +67,7 @@ def game(game_id=None):
         role=role,
         host_player=host_player,
         guest_player=guest_player,
+        page='game'
     )
 
 @app.route('/signup', methods=['GET', 'POST'])

@@ -3,6 +3,29 @@ body {
   padding-bottom: 40px;
 }
 
+.ja-text {
+  font-family: "Helvetica Neue","Helvetica","Arial","Kai","KaiTi", sans-serif;
+  font-size: 32px;
+}
+
+.choice {
+  margin-left: 40px;
+  margin-right: 40px;
+}
+
+.question {
+  font-size: 60px;
+  text-align: center;
+  min-height: 120px;
+}
+
+.tbl-ans{
+  width: 100%;
+}
+.tbl-ans tr{
+  text-align: center;  
+}
+
 .main-container {
   margin-top: 20px;
 }

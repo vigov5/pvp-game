@@ -85,10 +85,15 @@ class Fact(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     front = db.Column(db.String(255), unique = True, nullable = False)
     back = db.Column(db.Text)
+    deck_id = db.Column(db.Integer, db.ForeignKey('decks.id'))
 
     def __repr__(self):
         return '<Fact %r>' % (self.front)
 
+    def __init__(self, front, back, deck=None):
+        self.front = front
+        self.back = back
+        self.deck = deck
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -105,16 +110,22 @@ class Deck(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     name = db.Column(db.String(100))
     data = db.Column(db.Text)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
+    facts = db.relationship('Fact', backref = 'deck', lazy = 'dynamic')
 
     def __repr__(self):
         return '<Deck %r>' % (self.data)
 
+    def __init__(self, name, data):
+        self.name = name
+        self.data = data
 
 class Sentence(db.Model):
     __tablename__ = 'sentences'
     id = db.Column(db.Integer, primary_key = True)
     content = db.Column(db.Text)
     meaning_en = db.Column(db.Text)
+    deck_id = db.Column(db.Integer, db.ForeignKey('decks.id'))
 
     def __repr__(self):
         return '<Sentence %r>' % (self.content)
