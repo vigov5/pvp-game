@@ -11,40 +11,56 @@ import random
 from app import app, db
 from app.models import User, Game, Fact, Deck, ROLE_USER, ROLE_ADMIN, get_object_or_404
 
-"""
-d = Deck('hiragana', 'test')
-db.session.add(d)
-db.session.commit()
-a = Fact('あ', 'a', deck=d)
-db.session.add(a)
-db.session.commit()
-a = Fact('い', 'i', deck=d)
-db.session.add(a)
-db.session.commit()
-a = Fact('う', 'u', deck=d)
-db.session.add(a)
-db.session.commit()
-a = Fact('え', 'e', deck=d)
-db.session.add(a)
-db.session.commit()
-a = Fact('お', 'o', deck=d)
-db.session.add(a)
-db.session.commit()
-"""
-questions = []
-facts = Fact.query.filter_by(deck_id=1).all()
-random.shuffle(facts)
-for fact in facts:
-	tmp = list(facts)
-	tmp.remove(fact)
-	a = []
-	for decoy in random.sample(tmp, 3):
-		a.append(decoy.back)
-	a.append(fact.back)
-	questions.append({
-		'q': fact.front,
-		'a': a,
-		'i': a.index(fact.back)
-	})
-print questions
 
+a = {'あ':'a',
+'い':'i',
+'う':'u',
+'え':'e',
+'お':'o',
+'か':'ka',
+'き':'ki',
+'く':'ku',
+'け':'ke',
+'こ':'ko',
+'さ':'sa',
+'し':'shi',
+'す':'su',
+'せ':'se',
+'そ':'so',
+'た':'ta',
+'ち':'chi',
+'つ':'tsu',
+'て':'te',
+'と':'to',
+'な':'na',
+'に':'ni',
+'ぬ':'nu',
+'ね':'ne',
+'の':'no',
+'は':'ha',
+'ひ':'hi',
+'ふ':'hu',
+'へ':'he',
+'ほ':'ho',
+'ま':'ma',
+'み':'mi',
+'む':'mu',
+'め':'me',
+'も':'mo',
+'や':'ya',
+'ゆ':'yu',
+'よ':'yo',
+'ら':'ra',
+'り':'ri',
+'る':'ru',
+'れ':'re',
+'ろ':'ro',
+'わ':'wa',
+'を':'wo',
+'ん':'n'}
+
+d = Deck.query.get(1)
+for k,v in a.items():
+	z = Fact(k, v, deck=d)
+	db.session.add(z)
+	db.session.commit()

@@ -2,6 +2,25 @@
 {% block content %}
 <div class="row clearfix">
     <div class="col-md-12 column">
+        <table class="tbl-points">
+            <tr>
+                <td class="host-point">
+                    <div class="btn btn-primary btn-large host-point">
+                    <span class="glyphicon glyphicon-user"></span>&nbsp;&nbsp;&nbsp;<span id="host_name">{{ host_player.name }}</span>&nbsp;&nbsp;&nbsp;<span class="label label-success" id="host_point">0 pt</span>
+                    </div>
+                </td>
+                <td id="info">
+                    {% if role == 'host' %}Waiting for other player...{% else %}Waiting for other player to start...{% endif %}
+                </td>
+                <td class="guest-point">
+                    <div class="btn btn-danger btn-large guest-point">
+                    <span class="glyphicon glyphicon-user"></span>&nbsp;&nbsp;&nbsp;<span id="guest_name">{% if guest_player.name %}{{ guest_player.name }}{% else %}Anonymous{% endif %}</span>&nbsp;&nbsp;&nbsp;<span class="label label-success" id="guest_point">0 pt</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="col-md-12 column">
         <div class="ja-text question" id="questions">
         </div>
     </div>
@@ -19,7 +38,7 @@
 　　</div>
   <div class="col-md-12 column">
     {% if role == 'host' %}
-        <button id="start_button" class="btn btn-primary" onclick="start_game();">Start Game</button>
+        <button id="start_button" class="btn btn-info" onclick="start_game();">Start Game</button>
     {% endif %}
   </div>
     <script>
@@ -39,6 +58,13 @@
         var role = "{{ role }}"
         var gid = "{{ game.id }}"
         var q_num = 0;
+        var last_selected = '';
+        var MAX_SEC = 200;
+        var timer = MAX_SEC;
+        var time_out = false;
+        var t;
+        var A_answered = false;
+        var B_answered = false;
 
         {% if role == 'host' %}
         $('#start_button').hide();
@@ -49,7 +75,9 @@
             console.log('got message' + msg.data);
             if (data.msg == 'ready') {
                 $('#start_button').show();
+                $('#info').text('Player ' + data['name'] + ' joined');
                 console.log('player ' + data['name'] + ' joined');
+                $('#guest_name').text(data['name']);
             } else if (data.msg == 'quited') {
                 console.log('other player quited');
                 alert('other player quited');
@@ -59,20 +87,72 @@
                 alert('other player cheated !!!!');
                 window.location = "http://" + location.hostname + ":" + location.port + "/";
             } else if (data.msg == 'question') {
+                $('#info').text('Next question !');
+                $("#ans tr:last").text('');
+                $("#questions").text('');
                 $("#questions").text(data['q']);
                 for (var i = 0; i < data['a'].length; i++) {
                     txt = '<td><div class="btn btn-default btn-large ja-text choice" id="' + (i+1) + '">' + data['a'][i] + '</div></td>';
                     $("#ans tr:last").append(txt);
                 };
+                timer = MAX_SEC;
+                A_answered = false;
+                B_answered = false;
+                timedCount();
                 $(".choice").each(function(index, el) {
                     $(el).click(function(event) {
-                        send_answer(gid, role, $(el).attr('game_id'));
+                        if (A_answered && B_answered) {
+                            $('#info').text('Wait 3 sec for next question');
+                            return;
+                        }
+
+                        if (!time_out){
+                            last_selected = $(this).attr('id');
+                            send_answer(gid, role, $(this).attr('id'));
+                            clearTimeout(t);
+                        }
                     });
                 });
                 q_num = parseInt(data['q_num']);
-            } else if (data.msg == 'list_clients') {
+            } else if (data.msg == 'update') {
+                B_answered = true;
+                if (A_answered) {
+                    $('#info').text('Wait 3 sec for next question');
+                }
+                $('#guest_point').text(data['gp'] + ' pt');
+                $('#host_point').text(data['hp'] + ' pt');
+            } else if (data.msg == 'result') {
+                A_answered = true;
+                if (B_answered) {
+                    $('#info').text('Wait 3 sec for next question');
+                } else{
+                    $('#info').text('Wait for other player to answer');
+                }
+                $('#guest_point').text(data['gp'] + ' pt');
+                $('#host_point').text(data['hp'] + ' pt');
+                if (data['correct'] == 'true'){
+                    $('#' + last_selected).removeClass("btn-default").addClass("btn-success");
+                } else  {
+                    $('#' + last_selected).removeClass("btn-default").addClass("btn-danger");
+                }
+            } else if (data.msg == 'end') {
+                alert('Well done !');
             }
         };
+
+        function timedCount() {
+            $('#info').text('Time left: ' + timer);
+            timer = timer - 1;
+            if (timer == -1) {
+                clearTimeout(t);
+                timer = MAX_SEC;
+                send_answer(gid, role, '-1');
+                last_selected = '';
+            } else {
+                t = setTimeout(function(){timedCount()}, 1000);
+            }
+        }
+
         ws.onerror = function(evt) {
             alert("ERROR: "+ evt);
         };
@@ -94,12 +174,12 @@
             send_message(JSON.stringify({"msg": "offline", "name": nick, "clid": user_id}));
             ws.close();
         };
-        
+
         function send_answer(gid, role, aid) {
             if (role == "join") {
-                send_message(JSON.stringify({"msg": "answer", "gid": gid, "clid": p2, "aid": aid, "q_num": q_num}));
+                send_message(JSON.stringify({"msg": "answer", "gid": gid, "clid": p2, "aid": aid, "q_num": q_num, "t": timer}));
             } else if (role == "host") {
-                send_message(JSON.stringify({"msg": "answer", "gid": gid, "clid": p1, "aid": aid, "q_num": q_num}));
+                send_message(JSON.stringify({"msg": "answer", "gid": gid, "clid": p1, "aid": aid, "q_num": q_num, "t": timer}));
             }
         }
 

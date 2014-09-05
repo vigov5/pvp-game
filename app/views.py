@@ -23,7 +23,7 @@ def index():
     join_form = JoinGameForm(g.user)
     if join_form.validate_on_submit():
         game = Game.query.get(join_form.game_id.data)
-        game.guest_id = join_form.user_id.data
+        game.guest_id = g.user.id
         game.status = 'joined'
         db.session.add(game)
         db.session.commit()

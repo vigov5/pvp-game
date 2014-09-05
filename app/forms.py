@@ -78,9 +78,8 @@ class CreateGameForm(Form):
             return True
 
 class JoinGameForm(Form):
-    user_id = HiddenField('user_id')
     game_id = HiddenField('game_id')
-    submit = SubmitField('Create Game')
+    submit = SubmitField('Join Game')
 
     def __init__(self, current_user, *args, **kwargs):
         self.current_user_id = current_user.id
@@ -90,10 +89,8 @@ class JoinGameForm(Form):
         if not Form.validate(self):
             return False
 
-        user = User.query.get(self.user_id.data)
         game = Game.query.get(self.game_id.data)
-        if not user or not game or user.id != self.current_user_id or game.status != 'created':
-            self.user_id.errors.append('Invalid query')
+        if not game or game.status != 'created':
             return False
         else:
             return True
