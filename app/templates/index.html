@@ -1,16 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row clearfix">
-    <div class="col-md-10 column">
+    <div class="col-md-12 column">
+        <h3>All Games</h3>
         <form id="join_game" role="form" action="" method="POST">
             <input name="game_id" type="hidden" value="">
             {{ create_form.csrf_token }}
             <div id="game_list">
+            <table class="table table-borderd games-list">
+            <thead>
+                <td>ID</td>
+                <td>Host</td>
+                <td>Guest</td>
+                <td>Deck</td>
+                <td>Status</td>
+                <td>Action</td>
+            </thead>
+            <tbody>
             {% for game in games %}
-            Game {{ game.id }} by user {{ game.host_id}}:<br>
-            <button id="join_submit" class="btn btn-primary" onclick="$('#join_game input[name=game_id]').val($(this).attr('game_id'));" game_id="{{ game.id }}" >Join Game</button><br>
+            <tr game_id="{{ game.id }}">
+                <td>{{ game.id }}</td>
+                <td><img src="{{ game.host_player.getAvatar(24) }}"/> <a href="{{ url_for('profile', user_id=game.host_player.id) }}">{{ game.host_player.name }}</a></td>
+                <td>
+                {% if game.guest_player %}
+                    <img src="{{ game.guest_player.getAvatar(24) }}"/> <a href="{{ url_for('profile', user_id=game.guest_player.id) }}">{{ game.guest_player.name }}</a>
+                {% else %}
+                    ...
+                {% endif %}
+                </td>
+                <td>Hiragana Deck</td>
+                <td class="status"><span class="label label-success">Opened</span></td>
+                <td class="action"><button id="join_submit" class="btn btn-primary" onclick="join_game($(this));" game_id="{{ game.id }}" >Join Game</button></td>
+            </tr>
             {% endfor %}
+            </tbody>
             </div>
+            </table>
         </form>
         <form role="form" action="" method="POST">
             <input name="user_id" type="hidden" value="{{ user.id }}">
@@ -23,17 +48,34 @@
 <script type="text/javascript">
     var page = '{{ page }}';
     ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
-        ws.onmessage = function(msg) {
-            data = JSON.parse(msg.data);
-            if (data.msg == 'new_game') {
-                if (page == 'index'){
-                    $('#game_list').append('Game ' + data['gid'] + ' by user ' + data['name'] + ':<br>');
-                $('#game_list').append('<button id="join_submit" class="btn btn-primary" onclick="$("#join_game input[name=game_id]"").val($(this).attr("game_id"));" game_id="' + data['gid'] + '"">Join Game</button><br>')
-                }
+    ws.onmessage = function(msg) {
+        data = JSON.parse(msg.data);
+        if (data.msg == 'new_game') {
+            if (page == 'index'){
+                add_game(data);
             }
         }
-        function send_message(msg) {
-            ws.send(msg);
-        }
+    }
+
+    function add_game(data){
+        var txt = '<tr game_id="' + data['gid'] + '">';
+        txt += '<td>' + data['gid'] + '</td>';
+        txt += '<td><img src="' + data['avt'] + '"> <a href="/profile/' + data['clid'] + '">' + data['name'] + '</a></td>';
+        txt += '<td>...</td><td>' + data['d'] + '</td>';
+        txt += '<td class="status"><span class="label label-success">Opened</span></td>';
+        txt += '<td class="action">' + '<button id="join_submit" class="btn btn-primary" onclick="join_game($(this));" game_id="' + data['gid'] + '">Join Game</button></td>';
+        txt += '</tr>';
+        $('.games-list').prepend(txt);
+    }
+    
+    function send_message(msg) {
+        ws.send(msg);
+    }
+
+    function join_game(game){
+        alert(game.attr('game_id'));
+        $('#join_game input[name=game_id]').val(game.attr('game_id'));
+        $("#join_game").submit();
+    }
 </script>
 {% endblock %}

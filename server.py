@@ -9,6 +9,7 @@ import random
 import json
 from app import app, db
 from app.models import User, Game, Fact, ROLE_USER, ROLE_ADMIN, get_object_or_404
+from flask import url_for
 
 
 
@@ -18,6 +19,7 @@ games = {}
 class GameObject(object):
     host = None
     guest = None
+    model = None
     state = ''
     q_num = 0
     questions = []
@@ -122,8 +124,11 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                 return
             if games.has_key(game.id):
                 return
-            host = User.query.get(int(data['clid']))
-            new_game = GameObject(game, PlayerObject(host, self))
+            host_model = User.query.get(int(data['clid']))
+            if host_model not in db.session:
+                print 'host_model not in', host_model
+                db.session.add(host_model)
+            new_game = GameObject(game, PlayerObject(host_model, self))
             new_game.state = 'created'
             games[new_game.model.id] = new_game
             for client in clients:
@@ -132,6 +137,8 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                         'msg': 'new_game',
                         'gid': new_game.model.id,
                         'name': new_game.host.model.name,
+                        'd': 'Hiragana',
+                        'avt': new_game.host.model.getAvatar(24),
                         'clid': new_game.host.model.id
                     }))
         if msg_type == 'joined':
@@ -143,8 +150,12 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
             game.model = Game.query.get(gid)
             if game.model.guest_id != guest_id:
                 return
-            guest = User.query.get(int(data['clid']))
-            game.guest = PlayerObject(guest, self)
+            guest_model = User.query.get(int(data['clid']))
+            if guest_model not in db.session:
+                print 'guest not in', guest_model
+                db.session.add(guest_model)
+            game.guest = PlayerObject(guest_model, self)
+            db.session.add(game.model)
             # TODO check client valid
             print "[INFO] Player %s ready game %s" % (game.guest.model.name, game.model.id)
             game.host.socket.write_message(json.dumps({
@@ -171,10 +182,15 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                 return
             if game.model.id != gid:
                 game.cheated()
+            print db.session
             for player in [game.host, game.guest]:
                 print "INFO Checking questions %d" % game.q_num
                 print "INFO Correct is %d" % game.questions[game.q_num]['i']
+                db.session.expire_on_commit = False
                 if self == player.socket:
+                    if player.model not in db.session:
+                        print "not in"
+                        db.session.merge(player.model)
                     if player.model.id == int(data['clid']) and game.q_num == int(data['q_num']) \
                         and game.model.id == int(data['gid']):
                         if game.questions[game.q_num]['i'] + 1 == int(data['aid']) and not player.answered:
@@ -223,6 +239,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                     except:
                         pass
                 del games[gid]
+                print games
                 break
  
 logging.getLogger().setLevel(logging.DEBUG)

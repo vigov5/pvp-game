@@ -22,6 +22,8 @@ class Game(db.Model):
     host_point = db.Column(db.Integer)
     guest_point = db.Column(db.Integer)
     status = db.Column(db.String(20))
+    host_player = db.relationship('User', backref = 'hosted_game', primaryjoin='User.id==Game.host_id')
+    guest_player = db.relationship('User', backref = 'joined_game', primaryjoin='User.id==Game.guest_id')
 
     def __init__(self, host):
         self.host_id = host.id
@@ -38,7 +40,6 @@ class User(db.Model):
     name = db.Column(db.String(50))
     email = db.Column(db.String(45))
     role = db.Column(db.SmallInteger, default = ROLE_USER)
-    #hosted_game = db.relationship('User', backref = 'host', lazy = 'dynamic', foreign_keys=[Game.host_id])
     #joined_game = db.relationship('User', backref = 'guest', lazy = 'dynamic', foreign_keys=[Game.guest_id])
 
 
