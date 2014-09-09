@@ -51,9 +51,7 @@
     ws.onmessage = function(msg) {
         data = JSON.parse(msg.data);
         if (data.msg == 'new_game') {
-            if (page == 'index'){
-                add_game(data);
-            }
+            add_game(data);
         }
     }
 
