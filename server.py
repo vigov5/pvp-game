@@ -61,7 +61,7 @@ class GameObject(object):
                 'q_num': self.q_num
             }))
 
-    def create_questions(self, deck_id=1):
+    def create_questions(self, deck_id=1, reversed=False):
         questions = []
         facts = db.session.query(Fact).filter_by(deck_id=deck_id).all()
         random.shuffle(facts)
@@ -70,13 +70,13 @@ class GameObject(object):
             tmp.remove(fact)
             a = []
             for decoy in random.sample(tmp, 3):
-                a.append(decoy.back)
-            a.append(fact.back)
+                a.append(decoy.front) if reversed else a.append(decoy.back)
+            a.append(fact.front) if reversed else a.append(fact.back)
             random.shuffle(a)
             questions.append({
-                'q': fact.front,
+                'q': fact.back if reversed else fact.front,
                 'a': a,
-                'i': a.index(fact.back)
+                'i': a.index(fact.front if reversed else fact.back)
             })
         return questions
 
@@ -213,7 +213,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                         'msg': 'status_started',
                         'gid': game.model.id,
                     }))
-            game.questions = game.create_questions()
+            game.questions = game.create_questions(reversed=True)
             game.q_num = 0
             game.send_question()
 
@@ -243,18 +243,18 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                 game.guest.answered = False
                 game.q_num += 1
                 if game.q_num == len(game.questions):
+                    print "INFO game %d ended " % (game.model.id)
                     game.model.status = 'ended'
-                    game.host_point = game.host.point
-                    game.guest_point = game.guest.point
+                    game.model.host_point = game.host.point
+                    game.model.guest_point = game.guest.point
                     db.session.add(game.model)
                     db.session.commit()
                     game.send_end_game()
                     for client in clients:
-                        if client is not self:
-                            client.write_message(json.dumps({
-                                'msg': 'status_ended',
-                                'gid': game.model.id,
-                            }))
+                        client.write_message(json.dumps({
+                            'msg': 'status_ended',
+                            'gid': game.model.id,
+                        }))
                 else:
                     time.sleep(3)
                     game.send_question()

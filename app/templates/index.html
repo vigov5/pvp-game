@@ -69,7 +69,7 @@
             $(selector + " .game-status span").removeClass("label-warning").addClass("label-success");
             $(selector + " .game-status span").text('Started');
             $(selector + " .game-action").text('');
-        } else if (data.msg == 'status_started') {
+        } else if (data.msg == 'status_ended') {
             $(selector + " .game-status span").removeClass("label-success").addClass("label-info");
             $(selector + " .game-status span").text('Ended');
         } else if (data.msg == 'status_canceled') {
@@ -99,7 +99,6 @@
     }
 
     function join_game(game){
-        alert(game.attr('game_id'));
         $('#join_game input[name=game_id]').val(game.attr('game_id'));
         $("#join_game").submit();
     }
