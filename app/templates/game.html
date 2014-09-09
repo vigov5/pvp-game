@@ -172,7 +172,11 @@
             }
         }
         window.onbeforeunload = function() {
-            send_message(JSON.stringify({"msg": "offline", "name": nick, "clid": user_id}));
+            if (role == "join") {
+                send_message(JSON.stringify({"msg": "offline", "name": guest_player, "clid": p2}));
+            } else if (role == "host") {
+                send_message(JSON.stringify({"msg": "offline", "name": host_player, "clid": p1}));
+            }
             ws.close();
         };
 

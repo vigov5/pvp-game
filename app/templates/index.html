@@ -72,9 +72,11 @@
         } else if (data.msg == 'status_ended') {
             $(selector + " .game-status span").removeClass("label-success").addClass("label-info");
             $(selector + " .game-status span").text('Ended');
+            $(selector + " .game-action").text('');
         } else if (data.msg == 'status_canceled') {
             $(selector + " .game-status span").removeClass("label-success").removeClass("label-warning").removeClass("label-primary").addClass("label-default");
             $(selector + " .game-status span").text('Canceled');
+            $(selector + " .game-action").text('');
         } else if (data.msg == 'status_scored') {
             $(selector + " .game-score .game-hp").text(data['hp']);
             $(selector + " .game-score .game-gp").text(data['gp']);
