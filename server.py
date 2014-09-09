@@ -103,6 +103,14 @@ class GameObject(object):
             'gp': self.guest.point,
         }))
 
+        for client in clients:
+            client.write_message(json.dumps({
+                'msg': 'status_scored',
+                'gid': self.model.id,
+                'hp': self.host.point,
+                'gp': self.guest.point
+            }))
+
     def send_end_game(self):
         for socket in [self.host.socket, self.guest.socket]:
             socket.write_message(json.dumps({
@@ -111,6 +119,7 @@ class GameObject(object):
                 'hp': self.host.point,
                 'gp': self.guest.point,
             }))
+
 
 class PlayerObject(object):
 
@@ -179,6 +188,15 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                 'gid': game.model.id,
                 'name': game.guest.model.name
             }))
+            for client in clients:
+                if client is not self:
+                    client.write_message(json.dumps({
+                        'msg': 'status_joined',
+                        'gid': game.model.id,
+                        'name': game.guest.model.name,
+                        'avt': game.guest.model.getAvatar(24),
+                        'clid': game.guest.model.id
+                    }))
 
         if msg_type == 'start':
             gid = int(data['gid'])
@@ -189,6 +207,12 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
             db.session.add(game.model)
             db.session.commit()
             print "INFO game %d started " % (game.model.id)
+            for client in clients:
+                if client is not self:
+                    client.write_message(json.dumps({
+                        'msg': 'status_started',
+                        'gid': game.model.id,
+                    }))
             game.questions = game.create_questions()
             game.q_num = 0
             game.send_question()
@@ -225,6 +249,12 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                     db.session.add(game.model)
                     db.session.commit()
                     game.send_end_game()
+                    for client in clients:
+                        if client is not self:
+                            client.write_message(json.dumps({
+                                'msg': 'status_ended',
+                                'gid': game.model.id,
+                            }))
                 else:
                     time.sleep(3)
                     game.send_question()
@@ -252,6 +282,12 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                     except:
                         pass
                 del games[gid]
+                for client in clients:
+                    if client is not self:
+                        client.write_message(json.dumps({
+                            'msg': 'status_canceled',
+                            'gid': game.model.id,
+                        }))
                 break
  
 logging.getLogger().setLevel(logging.DEBUG)

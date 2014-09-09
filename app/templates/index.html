@@ -2,7 +2,7 @@
 {% block content %}
 <div class="row clearfix">
     <div class="col-md-12 column">
-        <h3>All Games</h3>
+        <h3>Last 10 Games</h3>
         <form id="join_game" role="form" action="" method="POST">
             <input name="game_id" type="hidden" value="">
             {{ create_form.csrf_token }}
@@ -13,6 +13,7 @@
                 <td>Host</td>
                 <td>Guest</td>
                 <td>Deck</td>
+                <td>Score</td>
                 <td>Status</td>
                 <td>Action</td>
             </thead>
@@ -20,8 +21,8 @@
             {% for game in games %}
             <tr game_id="{{ game.id }}">
                 <td>{{ game.id }}</td>
-                <td><img src="{{ game.host_player.getAvatar(24) }}"/> <a href="{{ url_for('profile', user_id=game.host_player.id) }}">{{ game.host_player.name }}</a></td>
-                <td>
+                <td class="game-host"><img src="{{ game.host_player.getAvatar(24) }}"/> <a href="{{ url_for('profile', user_id=game.host_player.id) }}">{{ game.host_player.name }}</a></td>
+                <td class="game-guest">
                 {% if game.guest_player %}
                     <img src="{{ game.guest_player.getAvatar(24) }}"/> <a href="{{ url_for('profile', user_id=game.guest_player.id) }}">{{ game.guest_player.name }}</a>
                 {% else %}
@@ -29,8 +30,13 @@
                 {% endif %}
                 </td>
                 <td>Hiragana Deck</td>
-                <td class="status"><span class="label label-success">Opened</span></td>
-                <td class="action"><button id="join_submit" class="btn btn-primary" onclick="join_game($(this));" game_id="{{ game.id }}" >Join Game</button></td>
+                <td class="game-score"><span class="game-hp">{{ game.host_point }}</span> - <span class="game-gp">{{ game.guest_point }}</span></td>
+                <td class="game-status">{{ game.print_status() | safe }}</td>
+                <td class="game-action">
+                {% if game.status == 'created' %}
+                <span id="join_submit" class="label label-primary" onclick="join_game($(this));" game_id="{{ game.id }}" >Join Game</span>
+                {% endif %}
+                </td>
             </tr>
             {% endfor %}
             </tbody>
@@ -50,18 +56,40 @@
     ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
     ws.onmessage = function(msg) {
         data = JSON.parse(msg.data);
+        selector = ".games-list [game_id=" + data['gid'] + "]";
         if (data.msg == 'new_game') {
             add_game(data);
+        } else if (data.msg == 'status_joined') {
+            txt = '<img src="' + data['avt'] + '"> <a href="/profile/' + data['clid'] + '">' + data['name'] + '</a></td>';
+            $(selector + " .game-guest").html(txt);
+            $(selector + " .game-status span").removeClass("label-primary").addClass("label-warning");
+            $(selector + " .game-status span").text('Ready');
+            $(selector + " .game-action").text('');
+        } else if (data.msg == 'status_started') {
+            $(selector + " .game-status span").removeClass("label-warning").addClass("label-success");
+            $(selector + " .game-status span").text('Started');
+            $(selector + " .game-action").text('');
+        } else if (data.msg == 'status_started') {
+            $(selector + " .game-status span").removeClass("label-success").addClass("label-info");
+            $(selector + " .game-status span").text('Ended');
+        } else if (data.msg == 'status_canceled') {
+            $(selector + " .game-status span").removeClass("label-success").removeClass("label-warning").removeClass("label-primary").addClass("label-default");
+            $(selector + " .game-status span").text('Canceled');
+        } else if (data.msg == 'status_scored') {
+            $(selector + " .game-score .game-hp").text(data['hp']);
+            $(selector + " .game-score .game-gp").text(data['gp']);
         }
+
     }
 
     function add_game(data){
         var txt = '<tr game_id="' + data['gid'] + '">';
         txt += '<td>' + data['gid'] + '</td>';
-        txt += '<td><img src="' + data['avt'] + '"> <a href="/profile/' + data['clid'] + '">' + data['name'] + '</a></td>';
-        txt += '<td>...</td><td>' + data['d'] + '</td>';
-        txt += '<td class="status"><span class="label label-success">Opened</span></td>';
-        txt += '<td class="action">' + '<button id="join_submit" class="btn btn-primary" onclick="join_game($(this));" game_id="' + data['gid'] + '">Join Game</button></td>';
+        txt += '<td class="game-host"><img src="' + data['avt'] + '"> <a href="/profile/' + data['clid'] + '">' + data['name'] + '</a></td>';
+        txt += '<td class="game-guest">...</td><td class="game-deck">' + data['d'] + '</td>';
+        txt += '<td class="game-score"><span class="game-hp">0</span> - <span class="game-gp">0</span></td>'
+        txt += '<td class="game-status"><span class="label label-primary">Created</span></td>';
+        txt += '<td class="game-action">' + '<span id="join_submit" class="label label-primary" onclick="join_game($(this));" game_id="' + data['gid'] + '">Join Game</span></td>';
         txt += '</tr>';
         $('.games-list').prepend(txt);
     }

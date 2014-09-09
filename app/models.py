@@ -32,6 +32,19 @@ class Game(db.Model):
         self.host_point = 0
         self.guest_point = 0
 
+    def print_status(self):
+        if self.status == 'created':
+            return '<span class="label label-primary">Created</span>'
+        if self.status == 'joined':
+            return '<span class="label label-warning">Ready</span>'
+        if self.status == 'started':
+            return '<span class="label label-success">Started</span>'
+        if self.status == 'ended':
+            return '<span class="label label-info">Ended</span>'
+        if self.status == 'canceled':
+            return '<span class="label label-default">Canceled</span>'
+        return '<span class="label label-muted">Unknown</span>'
+
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key = True)

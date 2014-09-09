@@ -18,7 +18,7 @@ def load_user(userid):
 @app.route('/index', methods = ['GET', 'POST'])
 @login_required
 def index():
-    games = Game.query.filter_by(status = 'created').all()
+    games = Game.query.order_by(Game.id.desc()).limit(10)
     create_form = CreateGameForm(g.user)
     join_form = JoinGameForm(g.user)
     if join_form.validate_on_submit():
