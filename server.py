@@ -140,6 +140,8 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
         clients.append(self)
         pass
 
+    def check_origin(self, origin):
+        return True
 
     def on_message(self, message):
         print "INFO Got message %s" % (message)
