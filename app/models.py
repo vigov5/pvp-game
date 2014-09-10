@@ -3,6 +3,7 @@ from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import exc
 from werkzeug.exceptions import abort
+from sqlalchemy.schema import UniqueConstraint
 
 ROLE_USER = 0
 ROLE_ADMIN = 1
@@ -24,13 +25,17 @@ class Game(db.Model):
     status = db.Column(db.String(20))
     host_player = db.relationship('User', backref = 'hosted_game', primaryjoin='User.id==Game.host_id')
     guest_player = db.relationship('User', backref = 'joined_game', primaryjoin='User.id==Game.guest_id')
+    reversed = db.Column(db.Boolean, default=False)
+    deck_id = db.Column(db.Integer, db.ForeignKey('decks.id'))
 
-    def __init__(self, host):
+    def __init__(self, host, deck=None, reversed=False):
         self.host_id = host.id
         self.guest_id = None
         self.status = 'created'
         self.host_point = 0
         self.guest_point = 0
+        self.reversed = reversed
+        self.deck = deck
 
     def print_status(self):
         if self.status == 'created':
@@ -53,8 +58,6 @@ class User(db.Model):
     name = db.Column(db.String(50))
     email = db.Column(db.String(45))
     role = db.Column(db.SmallInteger, default = ROLE_USER)
-    #joined_game = db.relationship('User', backref = 'guest', lazy = 'dynamic', foreign_keys=[Game.guest_id])
-
 
     def __init__(self, username, email, password):
         self.username = username
@@ -99,15 +102,17 @@ class Fact(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     front = db.Column(db.String(255), unique = True, nullable = False)
     back = db.Column(db.Text)
-    deck_id = db.Column(db.Integer, db.ForeignKey('decks.id'))
 
     def __repr__(self):
         return '<Fact %r>' % (self.front)
 
-    def __init__(self, front, back, deck=None):
+    def __str__(self):
+        return '%s' % (self.front)
+
+    def __init__(self, front="", back="", deck=None):
         self.front = front
         self.back = back
-        self.deck = deck
+        self.decks_used.append(deck)
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -125,12 +130,16 @@ class Deck(db.Model):
     name = db.Column(db.String(100))
     data = db.Column(db.Text)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
-    facts = db.relationship('Fact', backref = 'deck', lazy = 'dynamic')
+    facts = db.relationship('Fact', secondary='deck_facts', backref='decks_used')
+    games_used = db.relationship('Game', backref = 'deck', lazy = 'dynamic')
 
     def __repr__(self):
-        return '<Deck %r>' % (self.data)
+        return '<Deck %r %r>' % (self.name, self.data)
 
-    def __init__(self, name, data):
+    def __str__(self):
+        return '%s' % (self.name)
+
+    def __init__(self, name="", data=""):
         self.name = name
         self.data = data
 
@@ -147,3 +156,12 @@ class Sentence(db.Model):
     def __init__(self, content, meaning_en):
         self.content = content
         self.meaning_en = meaning_en
+
+class DeckInfo(db.Model):
+    __tablename__ = 'deck_facts'
+    id = db.Column(db.Integer, primary_key = True)
+    deck_id = db.Column(db.Integer, db.ForeignKey('decks.id'))
+    fact_id = db.Column(db.Integer, db.ForeignKey('facts.id'))
+    fact = db.relationship('Fact', backref=db.backref('fact_info', lazy = 'dynamic'))
+    deck = db.relationship('Fact', backref=db.backref('deck_info', lazy = 'dynamic'))
+    UniqueConstraint('deck_id', 'fact_id', name='deck_fact')

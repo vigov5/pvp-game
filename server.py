@@ -8,8 +8,7 @@ import time
 import random
 import json
 from app import app, db
-from app.models import User, Game, Fact, ROLE_USER, ROLE_ADMIN, get_object_or_404
-from flask import url_for
+from app.models import User, Game, Deck
 from sqlalchemy.inspection import inspect
 
 clients = []
@@ -62,8 +61,11 @@ class GameObject(object):
             }))
 
     def create_questions(self, deck_id=1, reversed=False):
+        print deck_id
         questions = []
-        facts = db.session.query(Fact).filter_by(deck_id=deck_id).all()
+        deck = Deck.query.get(deck_id)
+        facts = deck.facts
+        print facts
         random.shuffle(facts)
         for fact in facts:
             tmp = list(facts)
@@ -78,6 +80,7 @@ class GameObject(object):
                 'a': a,
                 'i': a.index(fact.front if reversed else fact.back)
             })
+        print questions
         return questions
 
     def send_unknown_error(self):
@@ -162,7 +165,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                         'msg': 'new_game',
                         'gid': new_game.model.id,
                         'name': new_game.host.model.name,
-                        'd': 'Hiragana',
+                        'd': '%s (%d questions)' % (new_game.model.deck.name, len(new_game.model.deck.facts)),
                         'avt': new_game.host.model.getAvatar(24),
                         'clid': new_game.host.model.id
                     }))
@@ -213,7 +216,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                         'msg': 'status_started',
                         'gid': game.model.id,
                     }))
-            game.questions = game.create_questions(reversed=True)
+            game.questions = game.create_questions(deck_id=game.model.deck.id,reversed=game.model.reversed)
             game.q_num = 0
             game.send_question()
 

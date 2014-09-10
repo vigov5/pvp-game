@@ -1,10 +1,12 @@
+from functools import wraps
 from flask import render_template, flash, redirect, url_for, request, g
 from flask.ext.login import login_user, logout_user, current_user, login_required
 from app import app, db, lm
 from forms import LoginForm, SignupForm, CreateGameForm, JoinGameForm
 from wtforms.ext.sqlalchemy.orm import model_form
 from flask_wtf import Form
-from models import User, Game, ROLE_USER, ROLE_ADMIN, get_object_or_404
+from models import User, Game, Deck, Fact, get_object_or_404
+from flask.ext.admin.contrib.sqla import ModelView
 
 @app.before_request
 def before_request():
@@ -13,6 +15,14 @@ def before_request():
 @lm.user_loader
 def load_user(userid):
     return User.query.get(int(userid))
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not g.user.is_admin():
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/', methods = ['GET', 'POST'])
 @app.route('/index', methods = ['GET', 'POST'])
@@ -30,7 +40,7 @@ def index():
         return redirect(url_for('game', game_id=game.id))
     elif create_form.validate_on_submit():
         host_player = User.query.get(create_form.user_id.data)
-        new_game = Game(host_player)
+        new_game = Game(host_player, deck=create_form.deck.data, reversed=create_form.reversed.data)
         db.session.add(new_game)
         db.session.commit()
         return redirect(url_for('game', game_id=new_game.id))
@@ -143,3 +153,39 @@ def edit_profile():
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
+
+# admin pages
+class UserView(ModelView):
+    # Disable model creation
+    can_create = False
+
+    # Override displayed fields
+    column_list = ('username', 'name', 'email', 'role')
+    column_filters = ('username', 'name', 'email')
+
+    def __init__(self, session, **kwargs):
+        # You can pass name and other parameters if you want to
+        super(UserView, self).__init__(User, session, **kwargs)
+
+    def is_accessible(self):
+        return g.user.is_admin()
+
+class DeckView(ModelView):
+
+    def __init__(self, session, **kwargs):
+        # You can pass name and other parameters if you want to
+        super(DeckView, self).__init__(Deck, session, **kwargs)
+
+    def is_accessible(self):
+        return g.user.is_admin()
+
+class FactView(ModelView):
+
+    column_filters = ('front', 'back')
+
+    def __init__(self, session, **kwargs):
+        # You can pass name and other parameters if you want to
+        super(FactView, self).__init__(Fact, session, **kwargs)
+
+    def is_accessible(self):
+        return g.user.is_admin()

@@ -29,7 +29,7 @@
                     ...
                 {% endif %}
                 </td>
-                <td>Hiragana Deck</td>
+                <td>{{ '%s (%d questions)' % (game.deck.name, game.deck.facts|length) }}</td>
                 <td class="game-score"><span class="game-hp">{{ game.host_point }}</span> - <span class="game-gp">{{ game.guest_point }}</span></td>
                 <td class="game-status">{{ game.print_status() | safe }}</td>
                 <td class="game-action">
@@ -43,9 +43,27 @@
             </div>
             </table>
         </form>
+        {% for message in create_form.user_id.errors %}
+        <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
+        {% for message in create_form.submit.errors %}
+        <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
+        {% for message in create_form.deck.errors %}
+        <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
+        {% for message in create_form.reversed.errors %}
+        <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
         <form role="form" action="" method="POST">
             <input name="user_id" type="hidden" value="{{ user.id }}">
             {{ create_form.csrf_token }}
+            <br>
+            <label>Deck</label>
+            {{ create_form.deck }}
+            <br>
+            <label>Reversed</label>
+            {{ create_form.reversed }}
             <br>
             <button class="btn btn-primary" type="submit">Create Game</button>
         </form>

@@ -117,6 +117,6 @@ a = {'あ':'a',
 
 d = Deck.query.get(1)
 for k,v in a.items():
-	z = Fact(k, v, deck=d)
+	z = Fact(front=k, back=v, deck=d)
 	db.session.add(z)
 	db.session.commit()

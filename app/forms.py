@@ -1,6 +1,7 @@
 from flask_wtf import Form
-from wtforms import TextField, SubmitField, validators, PasswordField, HiddenField
-from models import User, Game
+from wtforms import TextField, SubmitField, validators, PasswordField, HiddenField, BooleanField
+from models import User, Game, Deck
+from wtforms.ext.sqlalchemy.fields import QuerySelectField
 
 class SignupForm(Form):
     username = TextField('Username',  [
@@ -58,9 +59,14 @@ class LoginForm(Form):
             self.password.errors.append('Invalid e-mail or password')
             return False
 
+def deck_query():
+    return Deck.query.all()
+
 class CreateGameForm(Form):
     user_id = HiddenField('user_id')
     submit = SubmitField('Create Game')
+    deck = QuerySelectField(query_factory=deck_query, get_label='name')
+    reversed = BooleanField('Is Open')
 
     def __init__(self, current_user, *args, **kwargs):
         self.current_user_id = current_user.id
