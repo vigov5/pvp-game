@@ -61,11 +61,9 @@ class GameObject(object):
             }))
 
     def create_questions(self, deck_id=1, reversed=False):
-        print deck_id
         questions = []
         deck = Deck.query.get(deck_id)
         facts = deck.facts
-        print facts
         random.shuffle(facts)
         for fact in facts:
             tmp = list(facts)
@@ -80,7 +78,6 @@ class GameObject(object):
                 'a': a,
                 'i': a.index(fact.front if reversed else fact.back)
             })
-        print questions
         return questions
 
     def send_unknown_error(self):

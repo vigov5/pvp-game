@@ -72,18 +72,14 @@
         ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
         ws.onmessage = function(msg) {
             data = JSON.parse(msg.data);
-            console.log('got message' + msg.data);
             if (data.msg == 'ready') {
                 $('#start_button').show();
                 $('#info').text('Player ' + data['name'] + ' joined');
-                console.log('player ' + data['name'] + ' joined');
                 $('#guest_name').text(data['name']);
             } else if (data.msg == 'quited') {
-                console.log('other player quited');
                 alert('other player quited');
                 window.location = "http://" + location.hostname + ":" + location.port + "/";
             } else if (data.msg == 'unknown_error') {
-                console.log('unknown_error');
                 alert('unknown_error');
                 window.location = "http://" + location.hostname + ":" + location.port + "/";
             } else if (data.msg == 'question') {
