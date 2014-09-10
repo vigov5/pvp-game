@@ -2,7 +2,7 @@
 {% block content %}
 <div class="row clearfix">
     <div class="col-md-12 column">
-        <h3>Last 10 Games</h3>
+        <h3>Last 20 Games</h3>
         <form id="join_game" role="form" action="" method="POST">
             <input name="game_id" type="hidden" value="">
             {{ create_form.csrf_token }}
@@ -29,7 +29,7 @@
                     ...
                 {% endif %}
                 </td>
-                <td>{{ '%s (%d questions)' % (game.deck.name, game.deck.facts|length) }}</td>
+                <td>{{ game.deck.name }}</td>
                 <td class="game-score"><span class="game-hp">{{ game.host_point }}</span> - <span class="game-gp">{{ game.guest_point }}</span></td>
                 <td class="game-status">{{ game.print_status() | safe }}</td>
                 <td class="game-action">

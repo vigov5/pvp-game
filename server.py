@@ -36,8 +36,12 @@ class GameObject(object):
         self.host = host
 
     def __repr__(self):
+        print db.session
         for obj in db.session:
-            print obj
+            try:
+                print "%r" % obj
+            except:
+                pass
         txt = ''
         txt += "<Game %r %r %r >\n" % (self.model, self.host, self.guest)
         try:
@@ -63,7 +67,7 @@ class GameObject(object):
     def create_questions(self, deck_id=1, reversed=False):
         questions = []
         deck = Deck.query.get(deck_id)
-        facts = deck.facts
+        facts = random.sample(deck.facts, min(30, len(deck.facts)))
         random.shuffle(facts)
         for fact in facts:
             tmp = list(facts)
@@ -120,6 +124,16 @@ class GameObject(object):
                 'gp': self.guest.point,
             }))
 
+    def keep_undetached(self):
+        models = [player.model for player in [self.host, self.guest] if player]
+        if self.model:
+            models.append(self.model)
+        for model in models:
+            if inspect(model).detached:
+                try:
+                    db.session.add(model)
+                except Exception, e:
+                    print str(e)
 
 class PlayerObject(object):
 
@@ -144,7 +158,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
         return True
 
     def on_message(self, message):
-        print "INFO Got message %s" % (message)
+        #print "INFO Got message %s" % (message)
         data = json.loads(message)
         msg_type = data['msg'];
 
@@ -164,7 +178,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                         'msg': 'new_game',
                         'gid': new_game.model.id,
                         'name': new_game.host.model.name,
-                        'd': '%s (%d questions)' % (new_game.model.deck.name, len(new_game.model.deck.facts)),
+                        'd': new_game.model.deck.name,
                         'avt': new_game.host.model.getAvatar(24),
                         'clid': new_game.host.model.id
                     }))
@@ -184,7 +198,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
             db.session.add(game.guest.model)
             db.session.add(game.host.model)
             # TODO check client valid
-            print "[INFO] Player %s ready game %s" % (game.guest.model.name, game.model.id)
+            #print "[INFO] Player %s ready game %s" % (game.guest.model.name, game.model.id)
             game.host.socket.write_message(json.dumps({
                 'msg': 'ready',
                 'gid': game.model.id,
@@ -205,10 +219,11 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
             game = games.get(gid)
             if not game or self != game.host.socket or game.model.status != 'joined':
                 return
+            game.keep_undetached()
             game.model.status = 'started'
             db.session.add(game.model)
             db.session.commit()
-            print "INFO game %d started " % (game.model.id)
+            #print "INFO game %d started " % (game.model.id)
             for client in clients:
                 if client is not self:
                     client.write_message(json.dumps({
@@ -222,13 +237,14 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
         if msg_type == 'answer':
             gid = int(data['gid'])
             game = games.get(gid)
+            game.keep_undetached()
             if not game or game.model.status != 'started':
                 return
             if game.model.id != gid:
                 game.send_unknown_error()
             for player in [game.host, game.guest]:
-                print "INFO Checking questions %d" % game.q_num
-                print "INFO Correct is %d" % game.questions[game.q_num]['i']
+                #print "INFO Checking questions %d" % game.q_num
+                #print "INFO Correct is %d" % game.questions[game.q_num]['i']
                 if self == player.socket:
                     if player.model.id == int(data['clid']) and game.q_num == int(data['q_num']) \
                         and game.model.id == int(data['gid']):
@@ -239,13 +255,13 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                             game.send_update(False, player)
                         player.answered = True
                     break
-            print "INFO answered %r %r" % (game.host.answered, game.guest.answered)
+            #print "INFO answered %r %r" % (game.host.answered, game.guest.answered)
             if all([game.host.answered, game.guest.answered]):
                 game.host.answered = False
                 game.guest.answered = False
                 game.q_num += 1
                 if game.q_num == len(game.questions):
-                    print "INFO game %d ended " % (game.model.id)
+                    #print "INFO game %d ended " % (game.model.id)
                     game.model.status = 'ended'
                     game.model.host_point = game.host.point
                     game.model.guest_point = game.guest.point
@@ -258,17 +274,17 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                             'gid': game.model.id,
                         }))
                 else:
-                    time.sleep(3)
                     game.send_question()
 
     def on_close(self):
-        print "INFO client %r leave" % (self)
+        #print "INFO client %r leave" % (self)
         clients.remove(self)
         for gid, game in games.items():
             if self in [a.socket for a in [game.host, game.guest] if a]:
                 print "INFO client %r quit game" % (self)
                 if not game or game.model.status == 'canceled':
                     return
+                game.keep_undetached()
                 game.model.status = 'canceled'
                 game.model.host_point = game.host.point if game.host else 0
                 game.model.guest_point = game.guest.point if game.guest else 0
@@ -297,8 +313,9 @@ tornado_app = tornado.web.Application([
         (r'/websocket', GameWebSocket),
         (r'.*', tornado.web.FallbackHandler, {'fallback': tornado.wsgi.WSGIContainer(app)})
     ],
-    debug=True,
+    debug=False,
 )
- 
-tornado_app.listen(5000)
-tornado.ioloop.IOLoop.instance().start()
+
+if __name__ == '__main__':
+    tornado_app.listen(8080)
+    tornado.ioloop.IOLoop.instance().start()
