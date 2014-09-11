@@ -98,7 +98,7 @@
                 $(".choice").each(function(index, el) {
                     $(el).click(function(event) {
                         if (A_answered && B_answered) {
-                            $('#info').text('Wait 1 sec for next question');
+                            $('#info').text('Wait 3 sec for next question');
                             return;
                         }
 
@@ -113,14 +113,14 @@
             } else if (data.msg == 'update') {
                 B_answered = true;
                 if (A_answered) {
-                    $('#info').text('Wait 1 sec for next question');
+                    $('#info').text('Wait 3 sec for next question');
                 }
                 $('#guest_point').text(data['gp'] + ' pt');
                 $('#host_point').text(data['hp'] + ' pt');
             } else if (data.msg == 'result') {
                 A_answered = true;
                 if (B_answered) {
-                    $('#info').text('Wait 1 sec for next question');
+                    $('#info').text('Wait 3 sec for next question');
                 } else{
                     $('#info').text('Wait for other player to answer');
                 }

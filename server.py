@@ -7,6 +7,9 @@ import logging
 import time
 import random
 import json
+from tornado import gen
+from tornado.ioloop import IOLoop
+from tornado.web import RequestHandler, asynchronous
 from app import app, db
 from app.models import User, Game, Deck
 from sqlalchemy.inspection import inspect
@@ -21,7 +24,7 @@ def object_state(obj):
     except Exception, e:
         return str(e)
 
-class GameObject(object):
+class GameObject(RequestHandler):
     host = None
     guest = None
     model = None
@@ -36,10 +39,11 @@ class GameObject(object):
         self.host = host
 
     def __repr__(self):
-        print db.session
+        #print db.session
         for obj in db.session:
             try:
-                print "%r" % obj
+                #print "%r" % obj
+                pass
             except:
                 pass
         txt = ''
@@ -54,7 +58,11 @@ class GameObject(object):
         except Exception, e:
             return str(e)
 
-    def send_question(self):
+    @asynchronous
+    @gen.engine
+    def send_question(self, sec=0):
+        if sec:
+            yield gen.Task(IOLoop.instance().add_timeout, time.time() + sec)
         for socket in [self.host.socket, self.guest.socket]:
             socket.write_message(json.dumps({
                 'msg': 'question',
@@ -125,7 +133,7 @@ class GameObject(object):
             }))
 
     def keep_undetached(self):
-        print self
+        #print self
         models = [player.model for player in [self.host, self.guest] if player]
         if self.model:
             models.append(self.model)
@@ -275,14 +283,14 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                             'gid': game.model.id,
                         }))
                 else:
-                    game.send_question()
+                    game.send_question(sec=3)
 
     def on_close(self):
         #print "INFO client %r leave" % (self)
         clients.remove(self)
         for gid, game in games.items():
             if self in [a.socket for a in [game.host, game.guest] if a]:
-                print "INFO client %r quit game" % (self)
+                #print "INFO client %r quit game" % (self)
                 if not game or game.model.status == 'canceled':
                     return
                 game.keep_undetached()
