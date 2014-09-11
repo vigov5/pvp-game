@@ -125,6 +125,7 @@ class GameObject(object):
             }))
 
     def keep_undetached(self):
+        print self
         models = [player.model for player in [self.host, self.guest] if player]
         if self.model:
             models.append(self.model)
@@ -285,6 +286,9 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                 if not game or game.model.status == 'canceled':
                     return
                 game.keep_undetached()
+                if game.model.status == 'ended':
+                    del games[gid]
+                    return
                 game.model.status = 'canceled'
                 game.model.host_point = game.host.point if game.host else 0
                 game.model.guest_point = game.guest.point if game.guest else 0

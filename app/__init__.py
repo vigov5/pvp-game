@@ -6,9 +6,13 @@ from config import basedir
 from flask.ext.admin import Admin
 
 app = Flask(__name__)
+
+opts = {
+	'expire_on_commit': False,
+}
 app.config.from_object('config')
 
-db = SQLAlchemy(app)
+db = SQLAlchemy(app, session_options=opts)
 
 lm = LoginManager()
 lm.init_app(app)
