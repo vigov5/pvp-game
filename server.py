@@ -7,15 +7,20 @@ import logging
 import time
 import random
 import json
+import redis
 from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler, asynchronous
 from app import app, db
 from app.models import User, Game, Deck
 from sqlalchemy.inspection import inspect
+from game_object import GameObject
+from player_object import PlayerObject
 
 clients = []
 games = {}
+
+redis_client = redis.Redis()
 
 def object_state(obj):
     try:
@@ -24,209 +29,79 @@ def object_state(obj):
     except Exception, e:
         return str(e)
 
-class GameObject(RequestHandler):
-    host = None
-    guest = None
-    model = None
-    q_num = 0
-    questions = []
-
-    def get_op(self, player):
-        return self.host if player == self.guest else self.guest
-
-    def __init__(self, model, host):
-        self.model = model
-        self.host = host
-
-    def __repr__(self):
-        #print db.session
-        for obj in db.session:
-            try:
-                #print "%r" % obj
-                pass
-            except:
-                pass
-        txt = ''
-        txt += "<Game %r %r %r >\n" % (self.model, self.host, self.guest)
-        try:
-            txt += "Game " + object_state(self.model) + "\n"
-            if self.host.model:
-                txt += "Host " + object_state(self.host.model) + "\n"
-            if self.guest and self.guest.model:
-                txt += "Guest " + object_state(self.guest.model) + "\n"
-            return txt
-        except Exception, e:
-            return str(e)
-
-    @asynchronous
-    @gen.engine
-    def send_question(self, sec=0):
-        if sec:
-            yield gen.Task(IOLoop.instance().add_timeout, time.time() + sec)
-        for socket in [self.host.socket, self.guest.socket]:
-            socket.write_message(json.dumps({
-                'msg': 'question',
-                'gid': self.model.id,
-                'q': self.questions[self.q_num]['q'],
-                'a': self.questions[self.q_num]['a'],
-                'q_num': self.q_num
-            }))
-
-    def create_questions(self, deck_id=1, reversed=False):
-        questions = []
-        deck = Deck.query.get(deck_id)
-        facts = random.sample(deck.facts, min(30, len(deck.facts)))
-        random.shuffle(facts)
-        for fact in facts:
-            tmp = list(facts)
-            tmp.remove(fact)
-            a = []
-            for decoy in random.sample(tmp, 3):
-                a.append(decoy.front) if reversed else a.append(decoy.back)
-            a.append(fact.front) if reversed else a.append(fact.back)
-            random.shuffle(a)
-            questions.append({
-                'q': fact.back if reversed else fact.front,
-                'a': a,
-                'i': a.index(fact.front if reversed else fact.back)
-            })
-        return questions
-
-    def send_unknown_error(self):
-        for socket in [self.host.socket, self.guest.socket]:
-            socket.write_message(json.dumps({
-                'msg': 'unknown_error',
-                'gid': self.model.id,
-            }))
-
-    def send_update(self, correct, target):
-        target.socket.write_message(json.dumps({
-            'msg': 'result',
-            'correct': 'true' if correct else 'false',
-            'gid': self.model.id,
-            'hp': self.host.point,
-            'gp': self.guest.point,
-            'aid': self.questions[self.q_num]['i'] + 1
-        }))
-        self.get_op(target).socket.write_message(json.dumps({
-            'msg': 'update',
-            'gid': self.model.id,
-            'hp': self.host.point,
-            'gp': self.guest.point,
-        }))
-
-        for client in clients:
-            client.write_message(json.dumps({
-                'msg': 'status_scored',
-                'gid': self.model.id,
-                'hp': self.host.point,
-                'gp': self.guest.point
-            }))
-
-    def send_end_game(self):
-        for socket in [self.host.socket, self.guest.socket]:
-            socket.write_message(json.dumps({
-                'msg': 'end',
-                'gid': self.model.id,
-                'hp': self.host.point,
-                'gp': self.guest.point,
-            }))
-
-    def keep_undetached(self):
-        #print self
-        models = [player.model for player in [self.host, self.guest] if player]
-        if self.model:
-            models.append(self.model)
-        for model in models:
-            if inspect(model).detached:
-                try:
-                    db.session.add(model)
-                except Exception, e:
-                    print str(e)
-
-class PlayerObject(object):
-
-    socket = None
-    model = None
-    point = 0
-    answered = False
-
-    def __init__(self, model, socket):
-        self.socket = socket
-        self.model = model
-        self.point = 0
-        self.answered = False
-
 class GameWebSocket(tornado.websocket.WebSocketHandler):
 
     def open(self):
         clients.append(self)
+        print clients
         pass
 
     def check_origin(self, origin):
         return True
 
     def on_message(self, message):
-        #print "INFO Got message %s" % (message)
+        print "INFO Got message %s" % (message)
         data = json.loads(message)
         msg_type = data['msg'];
 
         if msg_type == 'created':
-            game = db.session.query(Game).get(int(data['gid']))
-            if not game or game.status != 'created':
+            game = redis_client.get("g%d" % int(data['gid']))
+            print game
+            if not game:
                 return
-            if games.has_key(game.id):
+            new_game = GameObject().from_json_string(game)
+            print new_game
+            print new_game.status
+            if not new_game or new_game.status != 'created':
                 return
-            host_model = db.session.query(User).get(int(data['clid']))
-            new_game = GameObject(game, PlayerObject(host_model, self))
-            games[new_game.model.id] = new_game
-            db.session.add(new_game.model)
+            games[new_game.gid] = new_game
             for client in clients:
                 if client is not self:
                     client.write_message(json.dumps({
                         'msg': 'new_game',
                         'gid': new_game.model.id,
-                        'name': new_game.host.model.name,
+                        'name': new_game.host_id.model.name,
                         'd': new_game.model.deck.name,
-                        'avt': new_game.host.model.getAvatar(24),
-                        'clid': new_game.host.model.id
+                        'avt': new_game.host_id.model.getAvatar(24),
+                        'clid': new_game.host_id.model.id
                     }))
+            print games
 
         if msg_type == 'joined':
             gid = int(data['gid'])
             if not games.has_key(gid):
                 return
             game = games[gid]
-            guest_id = int(data['clid'])
+            guest_id_id = int(data['clid'])
             game.model = db.session.query(Game).get(gid)
-            if game.model.guest_id != guest_id:
+            if game.model.guest_id_id != guest_id_id:
                 return
-            guest_model = db.session.query(User).get(int(data['clid']))
-            game.guest = PlayerObject(guest_model, self)
-            # mysteriously host got detached, we need to add host model once again
-            db.session.add(game.guest.model)
-            db.session.add(game.host.model)
+            guest_id_model = db.session.query(User).get(int(data['clid']))
+            game.guest_id = PlayerObject(guest_id_model, self)
+            # mysteriously host_id got detached, we need to add host_id model once again
+            db.session.add(game.guest_id.model)
+            db.session.add(game.host_id.model)
             # TODO check client valid
-            #print "[INFO] Player %s ready game %s" % (game.guest.model.name, game.model.id)
-            game.host.socket.write_message(json.dumps({
+            #print "[INFO] Player %s ready game %s" % (game.guest_id.model.name, game.model.id)
+            game.host_id.socket.write_message(json.dumps({
                 'msg': 'ready',
                 'gid': game.model.id,
-                'name': game.guest.model.name
+                'name': game.guest_id.model.name
             }))
             for client in clients:
                 if client is not self:
                     client.write_message(json.dumps({
                         'msg': 'status_joined',
                         'gid': game.model.id,
-                        'name': game.guest.model.name,
-                        'avt': game.guest.model.getAvatar(24),
-                        'clid': game.guest.model.id
+                        'name': game.guest_id.model.name,
+                        'avt': game.guest_id.model.getAvatar(24),
+                        'clid': game.guest_id.model.id
                     }))
 
         if msg_type == 'start':
             gid = int(data['gid'])
             game = games.get(gid)
-            if not game or self != game.host.socket or game.model.status != 'joined':
+            if not game or self != game.host_id.socket or game.model.status != 'joined':
                 return
             game.keep_undetached()
             game.model.status = 'started'
@@ -251,7 +126,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                 return
             if game.model.id != gid:
                 game.send_unknown_error()
-            for player in [game.host, game.guest]:
+            for player in [game.host_id, game.guest_id]:
                 #print "INFO Checking questions %d" % game.q_num
                 #print "INFO Correct is %d" % game.questions[game.q_num]['i']
                 if self == player.socket:
@@ -264,16 +139,16 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                             game.send_update(False, player)
                         player.answered = True
                     break
-            #print "INFO answered %r %r" % (game.host.answered, game.guest.answered)
-            if all([game.host.answered, game.guest.answered]):
-                game.host.answered = False
-                game.guest.answered = False
+            #print "INFO answered %r %r" % (game.host_id.answered, game.guest_id.answered)
+            if all([game.host_id.answered, game.guest_id.answered]):
+                game.host_id.answered = False
+                game.guest_id.answered = False
                 game.q_num += 1
                 if game.q_num == len(game.questions):
                     #print "INFO game %d ended " % (game.model.id)
                     game.model.status = 'ended'
-                    game.model.host_point = game.host.point
-                    game.model.guest_point = game.guest.point
+                    game.model.host_id_point = game.host_id.point
+                    game.model.guest_id_point = game.guest_id.point
                     db.session.add(game.model)
                     db.session.commit()
                     game.send_end_game()
@@ -289,7 +164,7 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
         #print "INFO client %r leave" % (self)
         clients.remove(self)
         for gid, game in games.items():
-            if self in [a.socket for a in [game.host, game.guest] if a]:
+            if self in [a.socket for a in [game.host_id, game.guest_id] if a]:
                 #print "INFO client %r quit game" % (self)
                 if not game or game.model.status == 'canceled':
                     return
@@ -298,11 +173,11 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                     del games[gid]
                     return
                 game.model.status = 'canceled'
-                game.model.host_point = game.host.point if game.host else 0
-                game.model.guest_point = game.guest.point if game.guest else 0
+                game.model.host_id_point = game.host_id.point if game.host_id else 0
+                game.model.guest_id_point = game.guest_id.point if game.guest_id else 0
                 db.session.add(game.model)
                 db.session.commit()
-                sockets = [a.socket for a in [game.host, game.guest] if a]
+                sockets = [a.socket for a in [game.host_id, game.guest_id] if a]
                 for socket in sockets:
                     try:
                         socket.write_message(json.dumps({
@@ -319,13 +194,13 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
                             'gid': game.model.id,
                         }))
                 break
- 
+
 logging.getLogger().setLevel(logging.DEBUG)
 tornado_app = tornado.web.Application([
         (r'/websocket', GameWebSocket),
         (r'.*', tornado.web.FallbackHandler, {'fallback': tornado.wsgi.WSGIContainer(app)})
     ],
-    debug=False,
+    debug=True,
 )
 
 if __name__ == '__main__':

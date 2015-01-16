@@ -1,12 +1,13 @@
 from functools import wraps
 from flask import render_template, flash, redirect, url_for, request, g
 from flask.ext.login import login_user, logout_user, current_user, login_required
-from app import app, db, lm
+from app import app, db, lm, rc
 from forms import LoginForm, SignupForm, CreateGameForm, JoinGameForm
 from wtforms.ext.sqlalchemy.orm import model_form
 from flask_wtf import Form
 from models import User, Game, Deck, Fact, get_object_or_404
 from flask.ext.admin.contrib.sqla import ModelView
+from game_object import GameObject
 
 @app.before_request
 def before_request():
@@ -43,6 +44,8 @@ def index():
         new_game = Game(host_player, deck=create_form.deck.data, reversed=create_form.reversed.data)
         db.session.add(new_game)
         db.session.commit()
+        go = GameObject().from_game(new_game)
+        rc.set("g%d" % new_game.id, go.to_json())
         return redirect(url_for('game', game_id=new_game.id))
     return render_template(
         'index.html',

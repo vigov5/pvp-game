@@ -48,7 +48,7 @@
         {% else %}
         var p1 = "0";
         {% endif %}
-        
+
         var guest_player = "{{ guest_player.name }}";
         {% if guest_player.id %}
         var p2 = "{{ guest_player.id }}";
@@ -71,6 +71,7 @@
         {% endif %}
         ws = new WebSocket("ws://" + location.hostname + ":" + location.port + "/websocket");
         ws.onmessage = function(msg) {
+            console.log("Got msg: " + msg.data);
             data = JSON.parse(msg.data);
             if (data.msg == 'ready') {
                 $('#start_button').show();
