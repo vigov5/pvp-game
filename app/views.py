@@ -38,6 +38,8 @@ def index():
         game.status = 'joined'
         db.session.add(game)
         db.session.commit()
+        go = GameObject().from_game(game)
+        rc.set("g%d" % game.id, go.to_json())
         return redirect(url_for('game', game_id=game.id))
     elif create_form.validate_on_submit():
         host_player = User.query.get(create_form.user_id.data)

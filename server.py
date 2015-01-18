@@ -18,7 +18,8 @@ from game_object import GameObject
 from player_object import PlayerObject
 
 clients = []
-games = {}
+hosts = {}
+guests = {}
 
 redis_client = redis.Redis()
 
@@ -36,6 +37,61 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
         print clients
         pass
 
+    @asynchronous
+    @gen.engine
+    def send_question(self, game, sockets, sec=0):
+        print 'send questions'
+        if sec:
+            yield gen.Task(IOLoop.instance().add_timeout, time.time() + sec)
+        for socket in sockets:
+            socket.write_message(json.dumps({
+                'msg': 'question',
+                'gid': game.gid,
+                'q': game.questions[game.q_num]['q'],
+                'a': game.questions[game.q_num]['a'],
+                'q_num': game.q_num
+            }))
+
+    def send_update(self, game, correct, my_socket, op_socket):
+        my_socket.write_message(json.dumps({
+            'msg': 'result',
+            'correct': 'true' if correct else 'false',
+            'gid': game.gid,
+            'hp': game.host_point,
+            'gp': game.guest_point,
+            'aid': game.questions[game.q_num]['i'] + 1
+        }))
+        op_socket.write_message(json.dumps({
+            'msg': 'update',
+            'gid': game.gid,
+            'hp': game.host_point,
+            'gp': game.guest_point,
+        }))
+
+        for client in clients:
+            client.write_message(json.dumps({
+                'msg': 'status_scored',
+                'gid': game.gid,
+                'hp': game.host_point,
+                'gp': game.guest_point
+            }))
+
+    def send_unknown_error(self, game, sockets):
+        for socket in sockets:
+            socket.write_message(json.dumps({
+                'msg': 'unknown_error',
+                'gid': game.gid,
+            }))
+
+    def send_end_game(self, game, sockets):
+        for socket in sockets:
+            socket.write_message(json.dumps({
+                'msg': 'end',
+                'gid': game.gid,
+                'hp': game.host_point,
+                'gp': game.guest_point,
+            }))
+
     def check_origin(self, origin):
         return True
 
@@ -46,154 +102,181 @@ class GameWebSocket(tornado.websocket.WebSocketHandler):
 
         if msg_type == 'created':
             game = redis_client.get("g%d" % int(data['gid']))
-            print game
             if not game:
                 return
             new_game = GameObject().from_json_string(game)
-            print new_game
-            print new_game.status
             if not new_game or new_game.status != 'created':
                 return
-            games[new_game.gid] = new_game
+            hosts[new_game.gid] = self
             for client in clients:
                 if client is not self:
                     client.write_message(json.dumps({
                         'msg': 'new_game',
-                        'gid': new_game.model.id,
-                        'name': new_game.host_id.model.name,
-                        'd': new_game.model.deck.name,
-                        'avt': new_game.host_id.model.getAvatar(24),
-                        'clid': new_game.host_id.model.id
+                        'gid': new_game.gid,
+                        'name': new_game.host_name,
+                        'd': new_game.deck_name,
+                        'avt': new_game.host_avatar,
+                        'clid': new_game.host_id
                     }))
-            print games
 
         if msg_type == 'joined':
             gid = int(data['gid'])
-            if not games.has_key(gid):
+            cached = redis_client.get("g%d" % gid)
+            if not cached:
                 return
-            game = games[gid]
+            game = GameObject().from_json_string(cached)
             guest_id_id = int(data['clid'])
-            game.model = db.session.query(Game).get(gid)
-            if game.model.guest_id_id != guest_id_id:
+            if game.guest_id != guest_id_id:
                 return
-            guest_id_model = db.session.query(User).get(int(data['clid']))
-            game.guest_id = PlayerObject(guest_id_model, self)
-            # mysteriously host_id got detached, we need to add host_id model once again
-            db.session.add(game.guest_id.model)
-            db.session.add(game.host_id.model)
-            # TODO check client valid
-            #print "[INFO] Player %s ready game %s" % (game.guest_id.model.name, game.model.id)
-            game.host_id.socket.write_message(json.dumps({
+            print "[INFO] Player %s ready game %s" % (game.guest_name, game.gid)
+            guests[game.gid] = self
+            hosts[game.gid].write_message(json.dumps({
                 'msg': 'ready',
-                'gid': game.model.id,
-                'name': game.guest_id.model.name
+                'gid': game.gid,
+                'name': game.guest_name
             }))
             for client in clients:
                 if client is not self:
                     client.write_message(json.dumps({
                         'msg': 'status_joined',
-                        'gid': game.model.id,
-                        'name': game.guest_id.model.name,
-                        'avt': game.guest_id.model.getAvatar(24),
-                        'clid': game.guest_id.model.id
+                        'gid': game.gid,
+                        'name': game.guest_name,
+                        'avt': game.guest_avatar,
+                        'clid': game.guest_id
                     }))
+            redis_client.set("g%d" % gid, game.to_json())
 
         if msg_type == 'start':
             gid = int(data['gid'])
-            game = games.get(gid)
-            if not game or self != game.host_id.socket or game.model.status != 'joined':
+            cached = redis_client.get("g%d" % gid)
+            if not cached:
                 return
-            game.keep_undetached()
-            game.model.status = 'started'
-            db.session.add(game.model)
-            db.session.commit()
-            #print "INFO game %d started " % (game.model.id)
+            game = GameObject().from_json_string(cached)
+            if not game or self != hosts[game.gid] or game.status != 'joined':
+                return
+            game.status = 'started'
+            print "INFO game %d started " % (game.gid)
             for client in clients:
                 if client is not self:
                     client.write_message(json.dumps({
                         'msg': 'status_started',
-                        'gid': game.model.id,
+                        'gid': game.gid,
                     }))
-            game.questions = game.create_questions(deck_id=game.model.deck.id,reversed=game.model.reversed)
             game.q_num = 0
-            game.send_question()
+            self.send_question(game, [hosts[gid], guests[gid]])
+            redis_client.set("g%d" % gid, game.to_json())
 
         if msg_type == 'answer':
             gid = int(data['gid'])
-            game = games.get(gid)
-            game.keep_undetached()
-            if not game or game.model.status != 'started':
+            cached = redis_client.get("g%d" % gid)
+            if not cached:
                 return
-            if game.model.id != gid:
-                game.send_unknown_error()
-            for player in [game.host_id, game.guest_id]:
-                #print "INFO Checking questions %d" % game.q_num
-                #print "INFO Correct is %d" % game.questions[game.q_num]['i']
-                if self == player.socket:
-                    if player.model.id == int(data['clid']) and game.q_num == int(data['q_num']) \
-                        and game.model.id == int(data['gid']):
-                        if game.questions[game.q_num]['i'] + 1 == int(data['aid']) and not player.answered:
-                            player.point += 10 + data['t']
-                            game.send_update(True, player)
-                        else:
-                            game.send_update(False, player)
-                        player.answered = True
-                    break
+            game = GameObject().from_json_string(cached)
+            if not game.status == 'started':
+                return
+            if game.gid != gid:
+                self.send_unknown_error(game, [hosts[gid], guests[gid]])
+            socket = hosts[gid] if self == hosts[gid] else guests
+            print "INFO Checking questions %d" % game.q_num
+            print "INFO Correct is %d" % game.questions[game.q_num]['i']
+            if self == hosts[gid]:
+                if game.host_id == int(data['clid']) and game.q_num == int(data['q_num']) and game.gid == gid:
+                    if game.questions[game.q_num]['i'] + 1 == int(data['aid']) and not game.host_answered:
+                        game.host_point += 10 + data['t']
+                        self.send_update(game, True, hosts[gid], guests[gid])
+                    else:
+                        self.send_update(game, False, hosts[gid], guests[gid])
+                    game.host_answered = True
+            else:
+                if game.guest_id == int(data['clid']) and game.q_num == int(data['q_num']) and game.gid == gid:
+                    if game.questions[game.q_num]['i'] + 1 == int(data['aid']) and not game.guest_answered:
+                        game.guest_point += 10 + data['t']
+                        self.send_update(game, True, guests[gid], hosts[gid])
+                    else:
+                        self.send_update(game, False, guests[gid], hosts[gid])
+                    game.guest_answered = True
             #print "INFO answered %r %r" % (game.host_id.answered, game.guest_id.answered)
-            if all([game.host_id.answered, game.guest_id.answered]):
-                game.host_id.answered = False
-                game.guest_id.answered = False
+
+            if all([game.host_answered, game.guest_answered]):
+                game.host_answered = False
+                game.guest_answered = False
                 game.q_num += 1
                 if game.q_num == len(game.questions):
-                    #print "INFO game %d ended " % (game.model.id)
-                    game.model.status = 'ended'
-                    game.model.host_id_point = game.host_id.point
-                    game.model.guest_id_point = game.guest_id.point
-                    db.session.add(game.model)
+                    print "INFO game %d ended " % (game.gid)
+                    model = Game.query.get(gid)
+                    model.status = 'ended'
+                    model.host_point = game.host_point if game.host_id else 0
+                    model.guest_point = game.guest_point if game.guest_id else 0
+                    db.session.add(model)
                     db.session.commit()
-                    game.send_end_game()
+                    self.send_end_game(game, [hosts[gid], guests[gid]])
                     for client in clients:
                         client.write_message(json.dumps({
                             'msg': 'status_ended',
-                            'gid': game.model.id,
+                            'gid': game.gid,
                         }))
+                    redis_client.delete("g%d" % gid)
+                    del hosts[gid]
+                    del guests[gid]
                 else:
-                    game.send_question(sec=3)
+                    print 'send questions 1'
+                    redis_client.set("g%d" % gid, game.to_json())
+                    self.send_question(game, [hosts[gid], guests[gid]], sec=3)
+            redis_client.set("g%d" % gid, game.to_json())
 
     def on_close(self):
-        #print "INFO client %r leave" % (self)
+        print "clients", clients
+        print "hosts", hosts
+        print "guests", guests
+        print "INFO client %r leave" % (self)
         clients.remove(self)
-        for gid, game in games.items():
-            if self in [a.socket for a in [game.host_id, game.guest_id] if a]:
-                #print "INFO client %r quit game" % (self)
-                if not game or game.model.status == 'canceled':
-                    return
-                game.keep_undetached()
-                if game.model.status == 'ended':
-                    del games[gid]
-                    return
-                game.model.status = 'canceled'
-                game.model.host_id_point = game.host_id.point if game.host_id else 0
-                game.model.guest_id_point = game.guest_id.point if game.guest_id else 0
-                db.session.add(game.model)
-                db.session.commit()
-                sockets = [a.socket for a in [game.host_id, game.guest_id] if a]
-                for socket in sockets:
-                    try:
-                        socket.write_message(json.dumps({
-                            'msg': 'quited',
-                            'gid': game.model.id,
-                        }))
-                    except:
-                        pass
-                del games[gid]
-                for client in clients:
-                    if client is not self:
-                        client.write_message(json.dumps({
-                            'msg': 'status_canceled',
-                            'gid': game.model.id,
-                        }))
+        gid = None
+        for target_id, socket in hosts.iteritems():
+            if self == socket:
+                gid = target_id
                 break
+        if not gid:
+            for target_id, socket in guests.iteritems():
+                if self == socket:
+                    gid = target_id
+                    break
+        print "gid", gid
+        if gid:
+            print "INFO client %r quit game %d" % (self, gid)
+            cached = redis_client.get("g%d" % gid)
+            if not cached:
+                return
+            game = GameObject().from_json_string(cached)
+            if not game or game.status == 'canceled':
+                return
+            if game.status == 'ended':
+                redis_client.delete("g%d" % gid)
+                del hosts[gid]
+                del guests[gid]
+                return
+            model = Game.query.get(gid)
+            model.status = 'canceled'
+            model.host_point = game.host_point if game.host_id else 0
+            model.guest_point = game.guest_point if game.guest_id else 0
+            db.session.add(model)
+            db.session.commit()
+            sockets = [hosts[gid]]
+            if guests.get(gid):
+                sockets.append(guests[gid])
+            for socket in sockets:
+                try:
+                    socket.write_message(json.dumps({
+                        'msg': 'quited',
+                        'gid': game.gid,
+                    }))
+                except:
+                    pass
+            for client in clients:
+                if client is not self:
+                    client.write_message(json.dumps({
+                        'msg': 'status_canceled',
+                        'gid': game.gid,
+                    }))
 
 logging.getLogger().setLevel(logging.DEBUG)
 tornado_app = tornado.web.Application([

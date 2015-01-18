@@ -13,19 +13,27 @@ class GameObject(RequestHandler):
         pass
 
     def from_game(self, game):
+        print game
         self.gid = game.id
         self.host_id = game.host_id
         self.guest_id = game.guest_id
         self.host_point = game.host_point
         self.guest_point = game.guest_point
+        self.host_avatar = game.host_player.getAvatar(24)
+        self.guest_avatar = game.guest_player.getAvatar(24) if game.guest_player else None
+        self.host_name = game.host_player.name
+        self.guest_name = game.guest_player.name if game.guest_player else None
         self.status = game.status
         self.reversed = game.reversed
+        self.host_answered = False
+        self.guest_answered = False
         self.deck_id = game.deck_id
+        self.deck_name = game.deck.name
         self.questions = self.create_questions(game.deck)
         return self
 
     def __repr__(self):
-        pass
+        return 'game %d' % self.gid
 
     def __str__(self):
         return 'game %d' % self.gid
@@ -37,9 +45,16 @@ class GameObject(RequestHandler):
             'guest_id': self.guest_id,
             'host_point': self.host_point,
             'guest_point': self.guest_point,
+            'host_avatar': self.host_avatar,
+            'guest_avatar': self.guest_avatar,
+            'host_name': self.host_name,
+            'guest_name': self.guest_name,
+            'host_answered': self.host_answered,
+            'guest_answered': self.guest_answered,
             'status': self.status,
             'reversed': self.reversed,
             'deck_id': self.deck_id,
+            'deck_name': self.deck_name,
             'questions': self.questions,
             'q_num': self.q_num,
         })
@@ -51,25 +66,19 @@ class GameObject(RequestHandler):
         self.guest_id = values['guest_id']
         self.host_point = values['host_point']
         self.guest_point = values['guest_point']
+        self.host_avatar = values['host_avatar']
+        self.guest_avatar = values['guest_avatar']
+        self.host_name = values['host_name']
+        self.guest_name = values['guest_name']
+        self.host_answered = values['host_answered']
+        self.guest_answered = values['guest_answered']
         self.status = values['status']
         self.reversed = values['reversed']
         self.deck_id = values['deck_id']
+        self.deck_name = values['deck_name']
         self.questions = values['questions']
+        self.q_num = values['q_num']
         return self
-
-    @asynchronous
-    @gen.engine
-    def send_question(self, sec=0):
-        if sec:
-            yield gen.Task(IOLoop.instance().add_timeout, time.time() + sec)
-        for socket in [self.host_id.socket, self.guest_id.socket]:
-            socket.write_message(json.dumps({
-                'msg': 'question',
-                'gid': self.model.id,
-                'q': self.questions[self.q_num]['q'],
-                'a': self.questions[self.q_num]['a'],
-                'q_num': self.q_num
-            }))
 
     def create_questions(self, deck, reversed=False):
         questions = []
@@ -90,55 +99,3 @@ class GameObject(RequestHandler):
                 'i': a.index(fact.front if reversed else fact.back)
             })
         return questions
-
-    def send_unknown_error(self):
-        for socket in [self.host_id.socket, self.guest_id.socket]:
-            socket.write_message(json.dumps({
-                'msg': 'unknown_error',
-                'gid': self.model.id,
-            }))
-
-    def send_update(self, correct, target):
-        target.socket.write_message(json.dumps({
-            'msg': 'result',
-            'correct': 'true' if correct else 'false',
-            'gid': self.model.id,
-            'hp': self.host_id.point,
-            'gp': self.guest_id.point,
-            'aid': self.questions[self.q_num]['i'] + 1
-        }))
-        self.get_op(target).socket.write_message(json.dumps({
-            'msg': 'update',
-            'gid': self.model.id,
-            'hp': self.host_id.point,
-            'gp': self.guest_id.point,
-        }))
-
-        for client in clients:
-            client.write_message(json.dumps({
-                'msg': 'status_scored',
-                'gid': self.model.id,
-                'hp': self.host_id.point,
-                'gp': self.guest_id.point
-            }))
-
-    def send_end_game(self):
-        for socket in [self.host_id.socket, self.guest_id.socket]:
-            socket.write_message(json.dumps({
-                'msg': 'end',
-                'gid': self.model.id,
-                'hp': self.host_id.point,
-                'gp': self.guest_id.point,
-            }))
-
-    def keep_undetached(self):
-        #print self
-        models = [player.model for player in [self.host_id, self.guest_id] if player]
-        if self.model:
-            models.append(self.model)
-        for model in models:
-            if inspect(model).detached:
-                try:
-                    db.session.add(model)
-                except Exception, e:
-                    print str(e)

@@ -11,3 +11,4 @@ flask-babel==0.9
 flup==1.0.2
 MySQL-python==1.2.5
 flask-admin==1.0.8
+redis==2.10.3
