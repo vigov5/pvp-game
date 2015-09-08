@@ -187,6 +187,7 @@ class DeckView(ModelView):
 class FactView(ModelView):
 
     column_filters = ('front', 'back')
+    column_list = ('front', 'back', 'decks_used')
 
     def __init__(self, session, **kwargs):
         # You can pass name and other parameters if you want to

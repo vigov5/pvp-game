@@ -85,6 +85,7 @@ class CreateGameForm(Form):
 
 class JoinGameForm(Form):
     game_id = HiddenField('game_id')
+    user_id = HiddenField('user_id')
     submit = SubmitField('Join Game')
 
     def __init__(self, current_user, *args, **kwargs):

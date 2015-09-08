@@ -29,7 +29,7 @@ class GameObject(RequestHandler):
         self.guest_answered = False
         self.deck_id = game.deck_id
         self.deck_name = game.deck.name
-        self.questions = self.create_questions(game.deck)
+        self.questions = self.create_questions(game.deck, game.reversed)
         return self
 
     def __repr__(self):
@@ -83,7 +83,7 @@ class GameObject(RequestHandler):
     def create_questions(self, deck, reversed=False):
         questions = []
         print deck
-        facts = random.sample(deck.facts, min(30, len(deck.facts)))
+        facts = random.sample(deck.facts, min(10, len(deck.facts)))
         random.shuffle(facts)
         for fact in facts:
             tmp = list(facts)
